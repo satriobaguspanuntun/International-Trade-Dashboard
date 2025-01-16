@@ -29,8 +29,8 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
     if (year_check(start) & year_check(end)) {
       
       range <- seq.Date(from = as.Date(paste(start, "01", "01", sep = "-")),
-                             to = as.Date(paste(end, "01", "01", sep = "-")),
-                             by = "1 year")
+                        to = as.Date(paste(end, "01", "01", sep = "-")),
+                        by = "1 year")
       
       range <- substr(as.character(range), 1, 4)
       
@@ -45,8 +45,8 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
     if (year_month_check(start) & year_month_check(end)) {
       
       range <- seq.Date(from = as.Date(paste(start, "01", sep = "-")),
-                                   to = as.Date(paste(end, "01", sep = "-")),
-                                   by = "1 month")
+                        to = as.Date(paste(end, "01", sep = "-")),
+                        by = "1 month")
       
       range <- substr(as.character(range), 1, 7)
       
@@ -60,7 +60,7 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
     stop("Frequency options are either 'A' Annual or 'M' Monthly")
     
   }
-
+  
   # loop time
   output_goods_list <- list()
   
