@@ -1,8 +1,10 @@
 library(dplyr)
 library(httr2)
 library(fredr)
+library(WDI)
 library(jsonlite)
 
+## CHECK WDI PACKAGE
 ### List of important economic indicators
 # GDP Nominal & real
 # Inflation (CPI)
@@ -41,6 +43,7 @@ api_search_request <- function(..., search_text, search_tag, limit = 100){
   return(req_body)
 }
 
+## pull data function
 api_pull_data_request <- function(..., series, start, end, sort = "desc") {
   if (!is.character(series)) {
     stop("Ensure the series name is in character")
@@ -174,14 +177,18 @@ pull_available_series <- function(country) {
     Sys.sleep(0.5)
   }
   
-  return(list(gdp = gdp, 
-              cpi = cpi, 
-              unemp = unemp, 
-              current_acc = current_acc, 
-              central_bank_rate = central_bank_rate, 
-              govt_bonds = govt_bonds, 
-              share_prices = share_prices, 
-              exchange_rate = exchange_rate))
+  data_combine <- do.call(rbind, list(gdp = gdp, 
+                                      cpi = cpi, 
+                                      unemp = unemp, 
+                                      current_acc = current_acc, 
+                                      central_bank_rate = central_bank_rate, 
+                                      govt_bonds = govt_bonds, 
+                                      share_prices = share_prices, 
+                                      exchange_rate = exchange_rate))
+  
+  rownames(data_combine) <- 1:nrow(data_combine)
+  
+  return(data_combine)
 }
 
 
@@ -189,32 +196,69 @@ loop_available_series <- function(countries_list) {
   
   empty_list <- list()
   
-  innit <- 1
-  
-  for (country in seq_along(countries_list)) {
+  for (country in test_countries) {
     
     empty_list[[country]] <- pull_available_series(country = country)
     
-    innit <- country + 1
-    
   }
-
   
+  return(empty_list)
 }
 
-test_pull <- pull_available_series("argentina")
+################################################################################
+#----------------------------- WDI package ------------------------------------#
+################################################################################
 
-test_countries <- countrycode$iso.name.en[1:10]
+## GDP Nominal & real
+# GDP Nominal: NY.GDP.MKTP.CD
+# GDP growth : NY.GDP.MKTP.KD.ZG
+# GDP real : Nominal/deflator
+# GDP per Capita: NY.GDP.PCAP.CD
 
-empty_list <- list()
+## Inflation (CPI)
+# Inflation consumer prices: FP.CPI.TOTL.ZG
 
-innit <- 1
+## Unemployment rate
+# Unemployment rate: SL.UEM.TOTL.ZS
 
-for (country in test_countries) {
-  
-  empty_list[[country]] <- pull_available_series(country = country)
-  
-}
+## Current account balance
+# Current account: BN.CAB.XOKA.CD
+# Foreign direct Investment, net inflows : BX.KLT.DINV.CD.WD
+
+# Export & Import (covered by comtrade)
+# Trade balance (covered by comtrade)
 
 ## pull data function
 
+wdi_dat_function <- function(countries, start, end) {
+  
+  container <- list()
+  
+  series_id <- c("NY.GDP.MKTP.CD", "NY.GDP.MKTP.KD.ZG",
+                 "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS", "BN.CAB.XOKA.CD",
+                 "BX.KLT.DINV.CD.WD")
+  
+  for (series in seq_along(series_id)) {
+    
+    print(paste0("Downloading Series type: ", series_id[series]))
+    
+    data <- WDI(country = countries, indicator = series_id[series], start = start, end = end)
+    
+    container[[series_id[series]]] <- data
+    
+    Sys.sleep(0.5)
+  }
+  
+  # join all data in the container list
+  final_data <- container |> purrr::reduce(inner_join, by = c("country", "iso2c", "iso3c", "year"))
+  
+  return(final_data)
+}
+
+countries <- c("MX", "AU")
+
+test_data <- wdi_dat_function(countries = countries, start = 2000, end = 2023)
+
+
+  
+  
