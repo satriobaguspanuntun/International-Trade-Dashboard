@@ -6,11 +6,31 @@ library(tidyr)
 # set comtrade api key
 set_primary_comtrade_key(Sys.getenv("COMTRADE_API_KEY"))
 
-# check date function
+# check api key 
+check_comtrade_api <- function(api_key) {
+  
+  indicator <- FALSE
+  
+  if (is.null(api_key)) {
+    
+    stop("Please ensure that you've sign up to Comtrade for the free comtrade -v1 API key.")
+    
+  } else  if (nchar(api_key) > 32) {
+    
+    stop("Recheck your API key, the generic API key for comtrade is 32 character.")
+    
+  } else {
+    
+    indicator <- TRUE
+  }
+  return(indicator)
+}
+
+# check year date function
 year_check <- function(x) {
   grepl("^\\d{4}$", x)
 }
-
+# check year month combination function
 year_month_check <- function(x) {
   grepl("^\\d{4}-\\d{2}$", x)
 }
