@@ -4,7 +4,15 @@ library(fredr)
 library(WDI)
 library(jsonlite)
 
-## CHECK WDI PACKAGE
+## CHECK WDI PACKAGE : this package is sooo good but the only issue with it
+## is that the data in world bank database is updated on an annual basis which
+## technically ok but not ideal
+
+## TODO: create a function to screened out unwanted series either manually assign
+## the series ids or string matching? not sure if this is the possible way to grab the 
+## thing that you wanted. UPDATE: NOT A GOOD IDEA TO USE FRED API, due to the serieses
+## are not synchronised between countries unlike World bank database (nice)
+
 ### List of important economic indicators
 # GDP Nominal & real
 # Inflation (CPI)
@@ -118,8 +126,24 @@ filter_var <- function(x, id_target = NULL, freq) {
 }
 
 pull_available_series <- function(country) {
-  if(!is.character(country)) {country <- as.character(country)}
-  if(grepl("[A-Z]", country)) {country <- tolower(country)}
+  if (!is.character(country)) {
+    
+    country <- as.character(country)
+    
+  }
+  
+  if (nchar(country) <= 3) {
+    
+    stop("Please supply the country vector with their full country name e.g Australia")
+    
+  }
+  
+  if (grepl("[A-Z]", country)) {
+    
+    country <- tolower(country)
+    
+  }
+  
   if (tolower(country) != "usa") {
     
     exchange_rate_bool <- TRUE
@@ -143,8 +167,8 @@ pull_available_series <- function(country) {
   current_acc <- api_search_request(search_text = "current account balance", search_tag = country, limit = 1000)
   Sys.sleep(0.5)
   # Interest rate
-  central_bank_rate <- api_search_request(search_text = "interest rate", search_tag = country, limit = 1000)
-  Sys.sleep(0.5)
+  # central_bank_rate <- api_search_request(search_text = "interest rate", search_tag = country, limit = 1000)
+  # Sys.sleep(0.5)
   # 10 year govt bonds
   govt_bonds <- api_search_request(search_text = "government bonds", search_tag = country, limit = 1000)
   Sys.sleep(0.5)
@@ -177,33 +201,43 @@ pull_available_series <- function(country) {
     Sys.sleep(0.5)
   }
   
-  data_combine <- do.call(rbind, list(gdp = gdp, 
-                                      cpi = cpi, 
-                                      unemp = unemp, 
-                                      current_acc = current_acc, 
-                                      central_bank_rate = central_bank_rate, 
-                                      govt_bonds = govt_bonds, 
-                                      share_prices = share_prices, 
-                                      exchange_rate = exchange_rate))
+  data_combine <- as.data.frame(do.call(rbind, list(gdp = gdp, 
+                                                   cpi = cpi, 
+                                                   unemp = unemp, 
+                                                   current_acc = current_acc,
+                                                   govt_bonds = govt_bonds, 
+                                                   share_prices = share_prices, 
+                                                   exchange_rate = exchange_rate)))
   
   rownames(data_combine) <- 1:nrow(data_combine)
   
   return(data_combine)
 }
 
-
+# loop over countries and extract series id
 loop_available_series <- function(countries_list) {
   
   empty_list <- list()
   
-  for (country in test_countries) {
+  for (country in countries_list) {
     
-    empty_list[[country]] <- pull_available_series(country = country)
+    empty_list[[country]] <- pull_available_series(country = country) %>% 
+      mutate(country_name = country)
     
   }
-  
-  return(empty_list)
+   # combine all of the data in the list into one dataframe
+  combined_data <- as.data.frame(do.call(rbind, empty_list))
+  rownames(combined_data) <- 1:nrow(combined_data)
+
+  return(combined_data)
 }
+
+country <- c("Australia", "Indonesia", "Thailand", "New Zealand", "Singapore")
+
+test_fred_list_id <- loop_available_series(country)
+
+## string matching function 
+
 
 ################################################################################
 #----------------------------- WDI package ------------------------------------#
@@ -246,18 +280,34 @@ wdi_dat_function <- function(countries, start, end) {
     
     container[[series_id[series]]] <- data
     
-    Sys.sleep(0.5)
+    Sys.sleep(1)
   }
   
   # join all data in the container list
-  final_data <- container |> purrr::reduce(inner_join, by = c("country", "iso2c", "iso3c", "year"))
+  final_data <- container |> 
+    purrr::reduce(inner_join, by = c("country", "iso2c", "iso3c", "year")) %>% 
+    rename("gdp_nominal" = "NY.GDP.MKTP.CD",
+           "gdp_nominal_growth" = "NY.GDP.MKTP.KD.ZG",
+           "inflation" = "FP.CPI.TOTL.ZG",
+           "unemployment" = "SL.UEM.TOTL.ZS",
+           "current_account" = "BN.CAB.XOKA.CD",
+           "fdi" = "BX.KLT.DINV.CD.WD")
+  
+  # check if year if the queried end date exist
+  year_sequence <- unique(final_data$year)
+  
+  if (!end %in% year_sequence) {
+    
+    warning(paste0("The queried end date: ",end," does not exist in the data /n
+                   This is probably due to the data points are not updated yet"))
+  }
   
   return(final_data)
 }
 
-countries <- c("MX", "AU")
+countries <- c("MX", "AU", "TH", "ID", "NZ")
 
-test_data <- wdi_dat_function(countries = countries, start = 2000, end = 2023)
+test_data <- wdi_dat_function(countries = countries, start = 2000, end = 2024)
 
 
   
