@@ -76,7 +76,7 @@ api_pull_data_request <- function(..., series, start, end, sort = "desc") {
   
 }
 
-test <- api_pull_data_request(series = "NGDPRNSAXDCUSQ", start = "2010-01-01", end = "2024-12-01", sort = "desc")
+#test <- api_pull_data_request(series = "NGDPRNSAXDCUSQ", start = "2010-01-01", end = "2024-12-01", sort = "desc")
 
 
 filter_var <- function(x, id_target = NULL, freq) {
@@ -232,10 +232,6 @@ loop_available_series <- function(countries_list) {
   return(combined_data)
 }
 
-country <- c("Australia", "Indonesia", "Thailand", "New Zealand", "Singapore")
-
-test_fred_list_id <- loop_available_series(country)
-
 ## string matching function 
 
 
@@ -272,9 +268,11 @@ wdi_dat_function <- function(countries, start, end) {
                  "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS", "BN.CAB.XOKA.CD",
                  "BX.KLT.DINV.CD.WD")
   
+  cli::cli_h1("Pulling Macroeconomic data from WDI database")
+  
   for (series in seq_along(series_id)) {
     
-    print(paste0("Downloading Series type: ", series_id[series]))
+    cli::cli_bullets(paste0("Downloading Series type: ", series_id[series]))
     
     data <- WDI(country = countries, indicator = series_id[series], start = start, end = end)
     
@@ -298,17 +296,10 @@ wdi_dat_function <- function(countries, start, end) {
   
   if (!end %in% year_sequence) {
     
-    warning(paste0("The queried end date: ",end," does not exist in the data /n
-                   This is probably due to the data points are not updated yet"))
+    warning(paste(paste0("The queried end date: ",end," does not exist in the data."),
+                  "This is probably due to the data points are not updated yet.", sep = "\n"))
   }
   
   return(final_data)
 }
-
-countries <- c("MX", "AU", "TH", "ID", "NZ")
-
-test_data <- wdi_dat_function(countries = countries, start = 2000, end = 2024)
-
-
-  
   
