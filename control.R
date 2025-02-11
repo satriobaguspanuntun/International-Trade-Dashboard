@@ -80,109 +80,14 @@ pull_all_countries_data <- function(country_batch, hs2 , start_date, end_date) {
   macro_data <- wdi_dat_function(countries = wdi_iso2,
                                  start = wdi_start,
                                  end = wdi_end)
-  
-  # check goods & service trade data for irregularities
-  # check year range for each queried countries
-  
-  # year_queried_range <- seq.Date(from = as.Date(paste("2015", "01", "01", sep = "-")),
-  #                                to = as.Date(paste("2023", "01", "01", sep = "-")),
-  #                                by = "1 year")
-  # 
-  # year_queried_range <- substr(as.character(year_queried_range), 1, 4)
-  # 
-  # for (i in seq_along(trade_data)) {
-  # 
-  #   data_to_check <- trade_data[[i]]
-  #   
-  #   missing_data <- data.frame(freq_code = NA, 
-  #                              ref_period_id = NA,
-  #                              ref_year = NA, 
-  #                              ref_month = NA,
-  #                              period = "2024",
-  #                              reporter_iso = "DEU", 
-  #                              reporter_desc = NA, 
-  #                              flow_code = NA, 
-  #                              flow_desc = NA,
-  #                              partner_iso = NA, 
-  #                              partner2desc = NA, 
-  #                              classification_code = NA,
-  #                              cmd_code = NA, 
-  #                              cmd_desc = NA, 
-  #                              aggr_level = NA,
-  #                              customs_code = NA,
-  #                              customs_desc = NA,
-  #                              cifvalue = NA,
-  #                              fobvalue = NA,
-  #                              primary_value = NA)
-  # 
-  #   data_to_check <- rbind(t, missing_data)
-  #   
-  #   missing_data <- data_to_check |>
-  #     group_by(ref_year, reporter_iso) |>
-  #     mutate(missing_year = if_else(!ref_year %in% year_queried_range, 1, 0)) |>
-  #     filter(missing_year == 1)
-  # 
-  #   if (nrow(missing_data) >= 1){
-  #     retry_country <- as.character(missing_data$period)
-  #     retry_year <- as.character(missing_data$reporter_iso)
-  #     success <- FALSE
-  #     cli::cli_h1(paste0("Retrying ", retry, " trade query for the year: ", retry_year))
-  #     while (success) {
-  #       
-  #       retry_data <-  pull_trade(retry_country,
-  #                                 partner = "all_countries",
-  #                                 direction = c("import", "re-import", "export", "re-export"),
-  #                                 start = retry_year,
-  #                                 end = retry_year,
-  #                                 freq = "A",
-  #                                 commod_code = hs2)
-  #       
-  #       # the pipe operator change from native |> to %>% (margitr) to utilse
-  #       # placeholder capability
-  #       sum_row_na <- retry_data %>% 
-  #         rowwise() %>% 
-  #         ungroup() %>% 
-  #         mutate(sum_na = sum(is.na(.))) %>% 
-  #         pull(sum_na)
-  #       
-  #       iterator <- 1
-  #       
-  #       if (nrow(retry_data) >= 1 & sum_row_na %in% c(18)) {
-  #         success <- FALSE
-  #         iterator <- iterator + 1
-  #         
-  #         if (iterator > 3) {
-  #           
-  #           return(cli::cli_h3("Unable to retrive trade data set, please try again later"))
-  #           
-  #         }
-  #         
-  #       } else if (nrow)
-  #       
-  #       
-  #     }
-  #     
-  #     
-  #   }
-  # 
-  # }
-  
-  # if missing year was found, retry to fetch the data for that missing year
 
-
-  # check macro data
-  # check year range 
-  
-  
-
-  
   # try bind them in a list
   return(list(trade = trade_data, macro = macro_data))
 }
 
 
 
-testing <- pull_all_countries_data(country_batch = country_batches[[4]], hs2 = hs2, start_date = "2015", end_date = "2023")
+testing <- pull_all_countries_data(country_batch = country_batches[[1]], hs2 = hs2, start_date = "2015", end_date = "2023")
 
 
 # test <- pull_trade(c("NZL", "CHN", "ARG", "IDN", "KOR"), 

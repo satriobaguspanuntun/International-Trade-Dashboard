@@ -146,11 +146,11 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
         return(missing_data)
       })
       
-      if (identical(nrow(goods_data), ncol(goods_data))) {
-        next
-      } else {
+      # if (identical(nrow(goods_data), ncol(goods_data))) {
+      #   next
+      # } else {}
         country_data[[j]] <- goods_data
-      }
+      
       
       Sys.sleep(0.5)  # Avoid API rate limit issues
     }
@@ -167,65 +167,100 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
   rownames(goods_output) <- 1:nrow(goods_output)
   
   ## services data
-  cli::cli_h1("Pulling Services Data")
-  service_data <- tryCatch({
-    ct_get_data(type = "services",
-                frequency = "A",
-                commodity_classification = "EB",
-                commodity_code = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
-                flow_direction = c("import", "re-import", "export", "re-export"),
-                reporter = reporter,
-                partner = "World",
-                start_date = start,
-                end_date = end
-                ) %>% 
-      select(freq_code, 
-             ref_period_id,
-             ref_year, 
-             ref_month,
-             period,
-             reporter_iso, 
-             reporter_desc, 
-             flow_code, 
-             flow_desc,
-             partner_iso, 
-             partner2desc, 
-             classification_code,
-             cmd_code, 
-             cmd_desc, 
-             aggr_level,
-             customs_code,
-             customs_desc,
-             cifvalue,
-             fobvalue,
-             primary_value)
-  }, error = function(e) {
-    message("Error for pulling services data", e)
-    missing_data <- data.frame(freq_code = NA, 
-                               ref_period_id = NA,
-                               ref_year = NA, 
-                               ref_month = NA,
-                               period = j,
-                               reporter_iso = i, 
-                               reporter_desc = NA, 
-                               flow_code = NA, 
-                               flow_desc = NA,
-                               partner_iso = NA, 
-                               partner2desc = NA, 
-                               classification_code = NA,
-                               cmd_code = NA, 
-                               cmd_desc = NA, 
-                               aggr_level = NA,
-                               customs_code = NA,
-                               customs_desc = NA,
-                               cifvalue = NA,
-                               fobvalue = NA,
-                               primary_value = NA)
-    return(missing_data)
-  })
+  service_output_list <- list()
+  
+  for (i in reporter) {
+    
+    cli::cli_h1("Pulling Services Data for Reporter: {i}")
+    
+    service_data <- tryCatch({
+      data <- ct_get_data(type = "services",
+                          frequency = "A",
+                          commodity_classification = "EB",
+                          commodity_code = c(200),
+                          flow_direction = c("import", "re-import", "export", "re-export"),
+                          reporter = i,
+                          partner = "World",
+                          start_date = start,
+                          end_date = end) 
+      
+      if (identical(nrow(data), ncol(data))) {
+        data <- data.frame(freq_code = NA, 
+                           ref_period_id = NA,
+                           ref_year = NA, 
+                           ref_month = NA,
+                           period = NA,
+                           reporter_iso = i, 
+                           reporter_desc = NA, 
+                           flow_code = NA, 
+                           flow_desc = NA,
+                           partner_iso = NA, 
+                           partner2desc = NA, 
+                           classification_code = NA,
+                           cmd_code = NA, 
+                           cmd_desc = NA, 
+                           aggr_level = NA,
+                           customs_code = NA,
+                           customs_desc = NA,
+                           cifvalue = NA,
+                           fobvalue = NA,
+                           primary_value = NA)
+      } else {
+        data <- data %>% 
+          select(freq_code, 
+                 ref_period_id,
+                 ref_year, 
+                 ref_month,
+                 period,
+                 reporter_iso, 
+                 reporter_desc, 
+                 flow_code, 
+                 flow_desc,
+                 partner_iso, 
+                 partner2desc, 
+                 classification_code,
+                 cmd_code, 
+                 cmd_desc, 
+                 aggr_level,
+                 customs_code,
+                 customs_desc,
+                 cifvalue,
+                 fobvalue,
+                 primary_value)
+      }
+    }, error = function(e){
+      data <- data.frame(freq_code = NA, 
+                         ref_period_id = NA,
+                         ref_year = NA, 
+                         ref_month = NA,
+                         period = NA,
+                         reporter_iso = i, 
+                         reporter_desc = NA, 
+                         flow_code = NA, 
+                         flow_desc = NA,
+                         partner_iso = NA, 
+                         partner2desc = NA, 
+                         classification_code = NA,
+                         cmd_code = NA, 
+                         cmd_desc = NA, 
+                         aggr_level = NA,
+                         customs_code = NA,
+                         customs_desc = NA,
+                         cifvalue = NA,
+                         fobvalue = NA,
+                         primary_value = NA)
+    })
+    
+    service_output_list[[i]] <- service_data
+    
+  }
+  
+  service_output <- as.data.frame(do.call(rbind, service_output_list))
+  
+  rownames(service_output) <- 1:nrow(service_output)
   
   # return list
-  output_list <- list(goods = goods_output, services = service_data)
+  output_list <- list(goods = goods_output, services = service_output)
   return(output_list)
 }
 
