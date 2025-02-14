@@ -1,8 +1,3 @@
-library(dplyr)
-library(httr2)
-library(fredr)
-library(WDI)
-library(jsonlite)
 
 ## CHECK WDI PACKAGE : this package is sooo good but the only issue with it
 ## is that the data in world bank database is updated on an annual basis which
@@ -259,7 +254,7 @@ loop_available_series <- function(countries_list) {
 # Trade balance (covered by comtrade)
 
 ## pull data function
-
+#### IMPROVE BY ADDING TRY CATCH 
 wdi_dat_function <- function(countries, start, end) {
   
   container <- list()
@@ -274,11 +269,24 @@ wdi_dat_function <- function(countries, start, end) {
     
     cli::cli_bullets(paste0("Downloading Series type: ", series_id[series]))
     
-    data <- WDI(country = countries, indicator = series_id[series], start = start, end = end)
+    macro_data <- tryCatch({
+      
+      data <- WDI(country = countries, indicator = series_id[series], start = start, end = end)
+      
+    }, error = function(e){
+      
+      data <- data.frame(country = NA,
+                         iso2c = NA,
+                         iso3c = NA,
+                         year = NA) %>% 
+        mutate(!!series_id[series] := NA)
+      
+    })
     
     container[[series_id[series]]] <- data
     
     Sys.sleep(1)
+    
   }
   
   # join all data in the container list

@@ -91,7 +91,7 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
     for (j in range) {
       goods_data <- tryCatch({
         cli::cli_bullets(paste0("Pulling data for the year: ", j))
-        ct_get_data(
+        data <- ct_get_data(
           type = "goods",
           frequency = "A",
           commodity_classification = "HS",
@@ -100,56 +100,78 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
           reporter = i,
           partner = "all_countries",
           start_date = j,
-          end_date = j
-        ) |> select(freq_code, 
-                    ref_period_id,
-                    ref_year, 
-                    ref_month,
-                    period,
-                    reporter_iso, 
-                    reporter_desc, 
-                    flow_code, 
-                    flow_desc,
-                    partner_iso, 
-                    partner2desc, 
-                    classification_code,
-                    cmd_code, 
-                    cmd_desc, 
-                    aggr_level,
-                    customs_code,
-                    customs_desc,
-                    cifvalue,
-                    fobvalue,
-                    primary_value)
+          end_date = j)
+        
+        if (identical(nrow(data), ncol(data))) {
+          data <- data.frame(freq_code = NA, 
+                             ref_period_id = NA,
+                             ref_year = NA, 
+                             ref_month = NA,
+                             period = j,
+                             reporter_iso = i, 
+                             reporter_desc = NA, 
+                             flow_code = NA, 
+                             flow_desc = NA,
+                             partner_iso = NA, 
+                             partner2desc = NA, 
+                             classification_code = NA,
+                             cmd_code = NA, 
+                             cmd_desc = NA, 
+                             aggr_level = NA,
+                             customs_code = NA,
+                             customs_desc = NA,
+                             cifvalue = NA,
+                             fobvalue = NA,
+                             primary_value = NA)
+        } else {
+          data <- data %>% 
+            select(freq_code, 
+                   ref_period_id,
+                   ref_year, 
+                   ref_month,
+                   period,
+                   reporter_iso, 
+                   reporter_desc, 
+                   flow_code, 
+                   flow_desc,
+                   partner_iso, 
+                   partner2desc, 
+                   classification_code,
+                   cmd_code, 
+                   cmd_desc, 
+                   aggr_level,
+                   customs_code,
+                   customs_desc,
+                   cifvalue,
+                   fobvalue,
+                   primary_value)
+        }
       }, error = function(e) {
         message("Error for country: ", i, ", date: ", j, ": ", e)
-        missing_data <- data.frame(freq_code = NA, 
-                                   ref_period_id = NA,
-                                   ref_year = NA, 
-                                   ref_month = NA,
-                                   period = j,
-                                   reporter_iso = i, 
-                                   reporter_desc = NA, 
-                                   flow_code = NA, 
-                                   flow_desc = NA,
-                                   partner_iso = NA, 
-                                   partner2desc = NA, 
-                                   classification_code = NA,
-                                   cmd_code = NA, 
-                                   cmd_desc = NA, 
-                                   aggr_level = NA,
-                                   customs_code = NA,
-                                   customs_desc = NA,
-                                   cifvalue = NA,
-                                   fobvalue = NA,
-                                   primary_value = NA)
-        return(missing_data)
+        data <- data.frame(freq_code = NA, 
+                           ref_period_id = NA,
+                           ref_year = NA, 
+                           ref_month = NA,
+                           period = j,
+                           reporter_iso = i, 
+                           reporter_desc = NA, 
+                           flow_code = NA, 
+                           flow_desc = NA,
+                           partner_iso = NA, 
+                           partner2desc = NA, 
+                           classification_code = NA,
+                           cmd_code = NA, 
+                           cmd_desc = NA, 
+                           aggr_level = NA,
+                           customs_code = NA,
+                           customs_desc = NA,
+                           cifvalue = NA,
+                           fobvalue = NA,
+                           primary_value = NA)
+        return(data)
       })
       
-      # if (identical(nrow(goods_data), ncol(goods_data))) {
-      #   next
-      # } else {}
-        country_data[[j]] <- goods_data
+      country_data[[j]] <- goods_data
       
       
       Sys.sleep(0.5)  # Avoid API rate limit issues

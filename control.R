@@ -11,6 +11,7 @@ library(httr2)
 library(fredr)
 library(WDI)
 library(jsonlite)
+library(RSQLite)
 
 source("~/international-Trade-Dashboard/pull_trade_data.R")
 source("~/international-Trade-Dashboard/pull_macro_data.R")
@@ -41,8 +42,8 @@ country_split <- function(n = 5) {
 
 country_batches <- country_split()
 
-# function to loop over countries grouping
-pull_all_countries_data <- function(country_batch, hs2 , start_date, end_date) {
+# function pull all data for each country
+pull_all_countries_data <- function(country_batch, hs2, start_date, end_date) {
   
   # check year
   if (!year_check(start_date) & !year_check(end_date)) {
@@ -85,19 +86,123 @@ pull_all_countries_data <- function(country_batch, hs2 , start_date, end_date) {
   return(list(trade = trade_data, macro = macro_data))
 }
 
+# function to loop over country batches
+loop_across_countries <- function(batches, start, end, hs) {
+  
+  # dataframe to store
+  # goods trade data
+  final_trade_data <- data.frame()
+  
+  # service trade data
+  final_service_data <- data.frame()
+  
+  # macro data
+  final_macro_data <- data.frame()
+  
+  # information data frame
+  info_data <- data.frame()
+  
+  for (i in seq_along(batches)) {
+    
+    batch <- batches[[i]]
+    
+    data <- pull_all_countries_data(country_batch = batch, start_date = start, end_date = end, hs2 = hs)
+    
+    # store goods data
+    trade_data <- data[[1]][[1]]
+    if (nrow(final_trade_data) == 0 & ncol(final_trade_data) == 0) {
+      
+      final_trade_data <- trade_data
+      
+    } else {
+      
+      final_trade_data <- rbind(final_trade_data, trade_data)
+      
+    }
+    
+    # store service data
+    service_data <- data[[1]][[2]]
+    if (nrow(final_service_data) == 0 & ncol(final_service_data) == 0) {
+      
+      final_service_data <- service_data
+      
+    } else {
+      
+      final_service_data <- rbind(final_service_data, service_data)
+      
+    }
+    
+    # store macro data
+    macro_data <- data[[2]]
+    if (nrow(final_macro_data) == 0 & ncol(final_macro_data) == 0) {
+      
+      final_macro_data <- macro_data
+      
+    } else {
+      
+      final_macro_data <- rbind(final_macro_data, macro_data)
+      
+    }
+    
+  }
+  
+  # check for missing data
+  
+  # retry to pull the missing data otherwise remove the rows
+  
+  # inject data to the final dataframe
+  
+  
+  return(list(goods = final_trade_data, services = final_service_data, macro = final_macro_data))
+}
+
+check_missing <- function(x) {
+  
+  col_names <- colnames(x)
+  
+  if (!col_names %in% c("classification_code")) {
+    
+    missing_data <- tryCatch({
+      data <-  x %>% 
+        mutate(na = rowSums(is.na(.))) %>% 
+        filter(na >= ncol(.) - 3) %>% 
+        select_if(function(x) any(!is.na(x))) %>% 
+        select(-na) 
+      
+    }, error = function(e){
+      data <- data.frame(period = NA,
+                         reporter_iso = NA)
+      
+    })
+    
+    if (all(is.na(missing_data))) {
+      
+      missing_data <- missing_data %>% mutate(retry = FALSE)
+      
+    } else {
+      
+      missing_data <- missing_data %>% mutate(retry = TRUE)
+      
+    }
+  
+  } else {
+    
+    # delete labels from the columns
+    
+    # detct NA's and flag them
+    
+    # mutate indicator column 
+    
+  }
+  
+  
+  
+  
+}
 
 
-testing <- pull_all_countries_data(country_batch = country_batches[[1]], hs2 = hs2, start_date = "2015", end_date = "2023")
+
+# function for storing final dataframe into sqlite format
 
 
-# test <- pull_trade(c("NZL", "CHN", "ARG", "IDN", "KOR"), 
-#                    "all_countries", 
-#                    direction = c("import", "re-import", "export", "re-export"),
-#                    start = "2019", 
-#                    end = "2024",
-#                    freq = "A",
-#                    commod_code = hs2)
-# 
-# countries <- c("NZ", "CH", "AR", "ID", "NZ")
-# 
-# test_data <- wdi_dat_function(countries = countries, start = 2000, end = 2024)
+test <- loop_across_countries(country_batches[1:2], start = "2020", "2023", hs = hs2)
