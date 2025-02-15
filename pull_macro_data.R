@@ -299,6 +299,24 @@ wdi_dat_function <- function(countries, start, end) {
            "current_account" = "BN.CAB.XOKA.CD",
            "fdi" = "BX.KLT.DINV.CD.WD")
   
+  # delete labels from the columns
+  col <- names(final_data)[5:ncol(final_data)]
+  
+  for (i in col) {
+    
+    indicator <- as.character(attr(final_data[, as.character(i)], "label"))
+    
+    if (indicator != "NULL") {
+      
+      attr(final_data[, as.character(i)], "label") <- NULL
+      
+    } else {
+      
+      next
+      
+    }
+  }
+  
   # check if year if the queried end date exist
   year_sequence <- unique(final_data$year)
   

@@ -156,44 +156,26 @@ loop_across_countries <- function(batches, start, end, hs) {
   return(list(goods = final_trade_data, services = final_service_data, macro = final_macro_data))
 }
 
-check_missing <- function(x) {
+# create sqlite database and update or save data on the first instance
+sqlite_push <- function(data_list){
   
-  col_names <- colnames(x)
-  
-  if (!col_names %in% c("classification_code")) {
+  if (file.exists("~/international-Trade-Dashboard/master_db.sqlite")) {
     
-    missing_data <- tryCatch({
-      data <-  x %>% 
-        mutate(na = rowSums(is.na(.))) %>% 
-        filter(na >= ncol(.) - 3) %>% 
-        select_if(function(x) any(!is.na(x))) %>% 
-        select(-na) 
-      
-    }, error = function(e){
-      data <- data.frame(period = NA,
-                         reporter_iso = NA)
-      
-    })
+    # check whether the new data suppose to be overwrite or append 
     
-    if (all(is.na(missing_data))) {
-      
-      missing_data <- missing_data %>% mutate(retry = FALSE)
-      
-    } else {
-      
-      missing_data <- missing_data %>% mutate(retry = TRUE)
-      
-    }
-  
+    # save 
+    
   } else {
     
-    # delete labels from the columns
+    # create new blank database (master_db)
     
-    # detct NA's and flag them
+    # write table into the database
     
-    # mutate indicator column 
+    # save
+    
     
   }
+  
   
   
   
@@ -202,7 +184,69 @@ check_missing <- function(x) {
 
 
 
+
+
+
+# check_missing <- function(x) {
+#   
+#   col_names <- colnames(x)
+#   
+#   if (!col_names %in% c("classification_code")) {
+#     
+#     missing_data <- tryCatch({
+#       data <-  x %>% 
+#         mutate(na = rowSums(is.na(.))) %>% 
+#         filter(na >= ncol(.) - 3) %>% 
+#         select_if(function(x) any(!is.na(x))) %>% 
+#         select(-na) 
+#       
+#     }, error = function(e){
+#       data <- data.frame(period = NA,
+#                          reporter_iso = NA)
+#       
+#     })
+#     
+#     if (all(is.na(missing_data))) {
+#       
+#       missing_data <- missing_data %>% mutate(retry = FALSE)
+#       
+#     } else {
+#       
+#       missing_data <- missing_data %>% mutate(retry = TRUE)
+#       
+#     }
+#   
+#   } else {
+#     
+#     # delete labels from the columns
+#     col <- names(x)[5:ncol(x)]
+#     
+#     for (i in col) {
+#       
+#       indicator <- as.character(attr(x[, as.character(i)], "label"))
+#       
+#       if (indicator != "NULL") {
+#         
+#         attr(x[, as.character(i)], "label") <- NULL
+#         
+#       } else {
+#         
+#         next
+#         
+#       }
+#     }
+#     
+#     # detect NA's and flag them
+#     
+#     # mutate indicator column 
+#     
+#   }
+#   
+#   
+#   
+#   
+# }
+
 # function for storing final dataframe into sqlite format
 
-
-test <- loop_across_countries(country_batches[1:2], start = "2020", "2023", hs = hs2)
+test <- loop_across_countries(country_batches[3], start = "2020", "2023", hs = hs2)
