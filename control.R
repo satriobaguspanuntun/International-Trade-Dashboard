@@ -16,6 +16,8 @@ library(RSQLite)
 source("~/international-Trade-Dashboard/pull_trade_data.R")
 source("~/international-Trade-Dashboard/pull_macro_data.R")
 
+conn <- dbConnect(SQLite(), "master_db.db")
+
 options(scipen = 999)
 
 list_concord <- concordance()
@@ -145,6 +147,22 @@ loop_across_countries <- function(batches, start, end, hs) {
     }
     
   }
+  # add id column
+  # trade id
+  final_trade_data <- final_trade_data %>% 
+    mutate(id = paste0(ref_period_id, reporter_iso, flow_code, cmd_code, partner_iso)) %>% 
+    relocate(id)
+  
+  # service id
+  final_service_data <- final_service_data %>% 
+    mutate(id = paste0(ref_period_id, reporter_iso, flow_code, cmd_code, partner_iso),
+           id = if_else(grepl("^[0-9]", id), NA, id)) %>% 
+    relocate(id)
+  
+  # macro id
+  final_macro_data <- final_macro_data %>% 
+    mutate(id = paste0(iso3c, year)) %>% 
+    relocate(id)
   
   # check for missing data
   
@@ -168,10 +186,138 @@ sqlite_push <- function(data_list){
   } else {
     
     # create new blank database (master_db)
+    ## Table for Trade goods
+    dbExecute(conn, "CREATE TABLE goods (
+    
+    id varchar(100),
+    
+    freq_code char(1),
+    
+    ref_period_id INT,
+    
+    ref_year INT,
+    
+    ref_month INT,
+    
+    period TEXT,
+    
+    reporter_iso TEXT,
+    
+    reporter_desc TEXT,
+    
+    flow_code TEXT,
+    
+    flow_desc TEXT,
+    
+    partner_iso TEXT,
+    
+    partner2desc TEXT,
+    
+    classification_code char(2),
+    
+    cmd_code varchar(10),
+    
+    cmd_desc varchar(100),
+    
+    aggr_level int,
+    
+    customs_code varchar(15),
+    
+    customs_desc varchar(100),
+    
+    cifvalue bigint,
+    
+    fobvalue bigint,
+    
+    primary_value bigint,
+    
+    PRIMARY KEY (id)
+)")
+    
+    ## Table for service data
+    dbExecute(conn, "CREATE TABLE services (
+             
+             id varchar (100),
+             
+             freq_code char (1) CHECK (freq_code IN ('A')),
+              
+             ref_period_id INT,
+              
+             ref_year INT,
+              
+             ref_month INT,
+              
+             period TEXT,
+              
+             reporter_iso TEXT,
+              
+             repoter_desc TEXT,
+              
+             flow_code TEXT,
+              
+             flow_desc TEXT,
+              
+             partner_iso TEXT,
+              
+             partner2desc TEXT,
+              
+             classification_code char (2),
+              
+             cmd_code varchar (10),
+              
+             cmd_desc varchar (100),
+              
+             aggr_level int,
+              
+             customs_code varchar(15),
+             
+             customs_desc varchar(100),
+              
+             cifvalue bigint,
+              
+             fobvalue bigint,
+              
+             primary_value bigint,
+              
+             PRIMARY KEY (id)
+             
+    )")
+    
+    ## Table for Macroeconomic data
+    dbExecute(conn, "CREATE TABLE macro (
+              
+              id varchar (100),
+              
+              country TEXT,
+              
+              iso2c TEXT,
+              
+              iso3c TEXT,
+              
+              year TEXT,
+              
+              gdp_nominal bigint,
+              
+              gdp_nominal_growth int,
+              
+              inflation int,
+              
+              unemployment int,
+              
+              current_account int,
+              
+              fdi int,
+              
+              PRIMARY KEY (id)
+              
+    )")
     
     # write table into the database
+    # trade goods
     
-    # save
+    dbWriteTable(conn, name = "goods", trade, append = TRUE)
+    
+     # save
     
     
   }
