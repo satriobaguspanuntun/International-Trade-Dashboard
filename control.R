@@ -176,7 +176,7 @@ loop_across_countries <- function(batches, start, end, hs) {
 }
 
 # create sqlite database and update or save data on the first instance
-sqlite_push <- function(data_list, overwrite = FALSE){
+sqlite_push <- function(data_list){
   
   # dataset names
   dataset_names <- names(data_list)
@@ -185,9 +185,9 @@ sqlite_push <- function(data_list, overwrite = FALSE){
     
     for (i in dataset_names) {
       
-      data <- data_list[[paste0(i)]]
-      
       if (i %in% c("goods", "services")) {
+        
+        data <- data_list[[paste0(i)]]
         
         # construct sql queries
         sql_query <- sprintf("SELECT DISTINCT ref_year, reporter_iso FROM %s", i)
@@ -210,7 +210,7 @@ sqlite_push <- function(data_list, overwrite = FALSE){
           
         } else {
           
-          cli::cli_h3(paste0("The new data dimesion and content are exactly matched with the one in the base"))
+          cli::cli_h3(paste0("The new data dimension and content are exactly matched with the one in the base"))
           
           overwrite_table <- rstudioapi::showQuestion(title = "Overwriting option", 
                                                       message = "Would you like to overwrite the table?",
@@ -225,13 +225,53 @@ sqlite_push <- function(data_list, overwrite = FALSE){
         
       } else { 
         
+        data <- data_list[[paste0(i)]]
         
+        # macro side
+        sql_macro_query <- sprintf("SELECT * FROM macro")
+        macro_data_table <- dbGetQuery(conn, sql_macro_query)
         
+        # pivot longer both dataset (new and old)
+        # old
+        pivot_macro_table <- pivot_longer(macro_data_table, 
+                                          cols = gdp_nominal:fdi,
+                                          names_to = "var",
+                                          values_to = "value") %>% 
+          arrange(desc(var))
         
+        # new 
+        pivot_new_macro_table <- pivot_longer(s,
+                                              cols = gdp_nominal:fdi,
+                                              names_to = "var",
+                                              values_to = "value") %>% 
+          mutate(year = as.character(year))
+        
+        # anti join to find the remainder
+        macro_data_remainder <- anti_join(pivot_new_macro_table, pivot_macro_table)
+        
+        # append if new rows detected
+        if (nrow(macro_data_remainder) > 0) {
+          
+          dbAppendTable(conn, name = i, value = data)
+          
+          
+        } else {
+          
+          cli::cli_h3(paste0("The new data dimension and content are exactly matched with the one in the base"))
+          
+          overwrite_table <- rstudioapi::showQuestion(title = "Overwriting option", 
+                                                      message = "Would you like to overwrite the table?",
+                                                      ok = "Yes", cancel = "No")
+          if (overwrite_table) {
+            
+            dbWriteTable(conn, name = i, value = data, append)
+            
+          }
+          
+        }
         
       }
-      
-      
+      print(data)
       
     }
     
@@ -242,7 +282,6 @@ sqlite_push <- function(data_list, overwrite = FALSE){
     ## if anti join return 0 rows and any of n rows and columns return 0 as well
     ### skip or next
     ### else append the table
-    
     
     
     # save 
@@ -356,7 +395,7 @@ sqlite_push <- function(data_list, overwrite = FALSE){
               
               iso3c TEXT,
               
-              year TEXT,
+              year INT,
               
               gdp_nominal bigint,
               
@@ -387,15 +426,11 @@ sqlite_push <- function(data_list, overwrite = FALSE){
     
   }
   
-  
-  
-  
-  
 }
 
 
 
-
+sqlite_push(data_list = test)
 
 
 # check_missing <- function(x) {
@@ -460,4 +495,4 @@ sqlite_push <- function(data_list, overwrite = FALSE){
 
 # function for storing final dataframe into sqlite format
 
-test <- loop_across_countries(country_batches[1], start = "2020", "2023", hs = hs2)
+test <- loop_across_countries(country_batches[2], start = "2020", "2023", hs = hs2)
