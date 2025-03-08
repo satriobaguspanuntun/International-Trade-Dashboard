@@ -181,7 +181,8 @@ sqlite_push <- function(data_list){
   # dataset names
   dataset_names <- names(data_list)
   
-  if (file.exists("~/international-Trade-Dashboard/master_db.db")) {
+  # check if master_db does exist AND whether db has data in it
+  if (file.exists("~/international-Trade-Dashboard/master_db.db") & length(dbListTables(conn)) != 0) {
     
     for (i in dataset_names) {
       
@@ -217,7 +218,7 @@ sqlite_push <- function(data_list){
                                                       ok = "Yes", cancel = "No")
           if (overwrite_table) {
             
-            dbWriteTable(conn, name = i, value = data)
+            dbWriteTable(conn, name = i, value = data, overwrite = TRUE)
             
           }
           
@@ -229,7 +230,10 @@ sqlite_push <- function(data_list){
         
         # macro side
         sql_macro_query <- sprintf("SELECT * FROM macro")
-        macro_data_table <- dbGetQuery(conn, sql_macro_query)
+        macro_data_table <- dbGetQuery(conn, sql_macro_query) %>% 
+          mutate(year = as.character(year),
+                 current_account = as.numeric(current_account),
+                 fdi = as.numeric(fdi))
         
         # pivot longer both dataset (new and old)
         # old
@@ -240,14 +244,15 @@ sqlite_push <- function(data_list){
           arrange(desc(var))
         
         # new 
-        pivot_new_macro_table <- pivot_longer(s,
+        pivot_new_macro_table <- pivot_longer(data,
                                               cols = gdp_nominal:fdi,
                                               names_to = "var",
                                               values_to = "value") %>% 
           mutate(year = as.character(year))
         
         # anti join to find the remainder
-        macro_data_remainder <- anti_join(pivot_new_macro_table, pivot_macro_table)
+        macro_data_remainder <- anti_join(pivot_new_macro_table, pivot_macro_table,
+                                          join_by(id, country, iso2c, iso3c, year, var))
         
         # append if new rows detected
         if (nrow(macro_data_remainder) > 0) {
@@ -264,27 +269,15 @@ sqlite_push <- function(data_list){
                                                       ok = "Yes", cancel = "No")
           if (overwrite_table) {
             
-            dbWriteTable(conn, name = i, value = data, append)
+            dbWriteTable(conn, name = i, value = data, overwrite = TRUE)
             
           }
           
         }
         
       }
-      print(data)
       
     }
-    
-    # check whether the new data suppose to be overwrite or append 
-    ## check dimension
-    ## does the n rows and columns matched?
-    ## anti join between tables 
-    ## if anti join return 0 rows and any of n rows and columns return 0 as well
-    ### skip or next
-    ### else append the table
-    
-    
-    # save 
     
   } else {
     
@@ -338,7 +331,7 @@ sqlite_push <- function(data_list){
 )")
     
     ## Table for service data
-    dbExecute(conn, "CREATE TABLE service (
+    dbExecute(conn, "CREATE TABLE services (
     
     id varchar(100),
     
@@ -397,17 +390,17 @@ sqlite_push <- function(data_list){
               
               year INT,
               
-              gdp_nominal bigint,
+              gdp_nominal INT,
               
-              gdp_nominal_growth int,
+              gdp_nominal_growth INT,
               
-              inflation int,
+              inflation INT,
               
-              unemployment int,
+              unemployment INT,
               
-              current_account int,
+              current_account INT,
               
-              fdi int,
+              fdi INT,
               
               PRIMARY KEY (id)
               
@@ -415,20 +408,24 @@ sqlite_push <- function(data_list){
     
     # write table into the database
     # goods trade
-    dbWriteTable(conn, name = "goods", trade_new, append = TRUE)
+    dbWriteTable(conn, name = "goods", data_list[[1]], append = TRUE)
     
     # service trade
-    dbWriteTable(conn, name = "services", test[[2]], append = TRUE)
+    dbWriteTable(conn, name = "services", data_list[[2]], append = TRUE)
     
     # macro trade
-    dbWriteTable(conn, name = "macro", test[[3]], append = TRUE)
-    
+    dbWriteTable(conn, name = "macro", data_list[[3]], append = TRUE)
     
   }
-  
 }
 
+test <- loop_across_countries(country_batches[1], start = "2020", "2023", hs = hs2)
 
+sqlite_push(data_list = test)
+
+# NICE IT WORKSS YEAYY
+# Now create a new script so that you can automatically update the database on a given period of frequency
+# maybe every week or what have you just ensure that everything goes smoothly without any issues (impossible but it's something worth to fight for)
 
 sqlite_push(data_list = test)
 
@@ -494,5 +491,3 @@ sqlite_push(data_list = test)
 # }
 
 # function for storing final dataframe into sqlite format
-
-test <- loop_across_countries(country_batches[2], start = "2020", "2023", hs = hs2)
