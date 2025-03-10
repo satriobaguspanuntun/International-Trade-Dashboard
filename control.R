@@ -165,13 +165,6 @@ loop_across_countries <- function(batches, start, end, hs) {
     mutate(id = paste0(iso3c, year)) %>% 
     relocate(id)
   
-  # check for missing data
-  
-  # retry to pull the missing data otherwise remove the rows
-  
-  # inject data to the final dataframe
-  
-  
   return(list(goods = final_trade_data, services = final_service_data, macro = final_macro_data))
 }
 
@@ -419,16 +412,16 @@ sqlite_push <- function(data_list){
   }
 }
 
-test <- loop_across_countries(country_batches[1], start = "2020", "2023", hs = hs2)
+test <- loop_across_countries(country_batches[1], start = "2014", "2023", hs = hs2)
 
 sqlite_push(data_list = test)
+
+
+db_data_test <- dbGetQuery(conn, "SELECT * FROM goods WHERE reporter_iso in ('ARG', 'AUS', 'AUT')")
 
 # NICE IT WORKSS YEAYY
 # Now create a new script so that you can automatically update the database on a given period of frequency
 # maybe every week or what have you just ensure that everything goes smoothly without any issues (impossible but it's something worth to fight for)
-
-sqlite_push(data_list = test)
-
 
 # check_missing <- function(x) {
 #   
