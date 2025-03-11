@@ -80,3 +80,10 @@ all_countrycode <- gisco_countrycode |>
 
 # save countrycode dataframe 
 saveRDS(all_countrycode, "~/international-Trade-Dashboard/data/countrycode.rds")
+
+# create a new table in sqlite and save country meta data
+
+
+
+
+

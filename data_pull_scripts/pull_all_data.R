@@ -3,32 +3,6 @@
 ## the main idea behind this script is to reduce the amount of api call
 ## each day for the countries that we are interested in. Slicing the countries
 ## into batches (like 5 to 10 countries) and pull their data each day recursively
-library(dplyr)
-library(lubridate)
-library(comtradr)
-library(tidyr)
-library(httr2)
-library(fredr)
-library(WDI)
-library(jsonlite)
-library(RSQLite)
-
-source("~/international-Trade-Dashboard/pull_trade_data.R")
-source("~/international-Trade-Dashboard/pull_macro_data.R")
-
-conn <- dbConnect(SQLite(), "master_db.db")
-
-options(scipen = 999)
-
-list_concord <- concordance()
-
-hs_concord <- list_concord$hs
-serv_concord <- list_concord$serv
-
-rm(list_concord)
-
-hs2 <- hs_concord |> filter(aggrLevel == 2) |> select(id)
-hs2 <- hs2$id
 
 # function to split the countries into small batches, each batch consist of 5-10 countries
 country_split <- function(n = 5) {
@@ -41,8 +15,6 @@ country_split <- function(n = 5) {
   
   return(list_batches)
 }
-
-country_batches <- country_split()
 
 # function pull all data for each country
 pull_all_countries_data <- function(country_batch, hs2, start_date, end_date) {
@@ -412,12 +384,12 @@ sqlite_push <- function(data_list){
   }
 }
 
-test <- loop_across_countries(country_batches[1], start = "2014", "2023", hs = hs2)
 
-sqlite_push(data_list = test)
+# test <- loop_across_countries(country_batches[1], start = "2014", "2023", hs = hs2)
 
+# sqlite_push(data_list = test)
 
-db_data_test <- dbGetQuery(conn, "SELECT * FROM goods WHERE reporter_iso in ('ARG', 'AUS', 'AUT')")
+# db_data_test <- dbGetQuery(conn, "SELECT * FROM goods WHERE reporter_iso in ('ARG', 'AUS', 'AUT')")
 
 # NICE IT WORKSS YEAYY
 # Now create a new script so that you can automatically update the database on a given period of frequency
