@@ -43,7 +43,7 @@ country_batches <- country_split()
 #-----------------------  PULL TRADE AND MACRO DATA ---------------------------#
 
 # function to iterate over the country batches and stop if data fetch function is called more
-# than 3 times to avoid reaching the maximum amount of calls that API can handle.
+# than 2 times to avoid reaching the maximum amount of calls that API can handle.
 
 pull_master_data <- function(country_batches_to_run, start_date, end_date, hs_type) {
   
@@ -69,42 +69,62 @@ pull_master_data <- function(country_batches_to_run, start_date, end_date, hs_ty
       # store to sqlite
       sqlite_push(data_for_sql)
       
-      # if the iterator reach more than 3, stop the loop
-      if (i >= 3) {
+      # if the iterator reach more than 2, stop the loop
+      if (i >= 2) {
         
-        stop("You have the reach the maximum data pull, please try again tomorrow.")
+        if (file.exists("~/international-Trade-Dashboard/data/log_data.rds")) {
+          
+          # read log data file
+          log_data_old <- readRDS("~/international-Trade-Dashboard/data/log_data.rds")
+          
+          # create a log file 
+          log_update_data <- data.frame(time = current_date,
+                                        date = substr(current_date, 1, 10),
+                                        list_step = i,
+                                        username = Sys.getenv("USERNAME"))
+          
+          # bind row log_update_data into the existing log data file
+          log_data_new <- rbind(log_data_old, log_update_data)
+          
+          file.remove("~/international-Trade-Dashboard/data/log_data.rds")
+          
+          saveRDS(log_data_new, "~/international-Trade-Dashboard/data/log_data.rds")
+          
+        } else {
+          
+          # create a log file 
+          log_data <- data.frame(time = current_date,
+                                 date = substr(current_date, 1, 10),
+                                 list_step = i,
+                                 username = Sys.getenv("USERNAME"))
+          
+          # save it in data folder
+          saveRDS(log_data, "~/international-Trade-Dashboard/data/log_data.rds")
+          
+          cli::cli_h1("Log data has been updated or saved at ~/international-Trade-Dashboard/data folder path")
+          
+          stop("You have the reach the maximum data pull, please try again tomorrow.")
+          
+        }
         
-        # create a log file 
-        log_data <- data.frame(time = current_date,
-                               date = substr(current_date, 1, 10),
-                               list_step = i,
-                               username = Sys.getenv("USERNAME"))
-        
-        # save it in data folder
-        saveRDS(log_data, "~/international-Trade-Dashboard/data/log_data.rds")
-        
-        cli::cli_h1("Log data has been updated or saved at ~/international-Trade-Dashboard/data folder path")
       }
       
-      # print triple dot on the console
-      
-      
+      # update iterator
       i <- i + 1
       
     }
-    
     
   }
   
 }
 
 
-test <- loop_across_countries(country_batches[3], start = "2014", end = "2023", hs = hs2)
+test <- loop_across_countries(country_batches[3], start = "2020", end = "2023", hs = hs2)
 
 sqlite_push(data_list = test)
 
 dbDisconnect(conn)
 
 
-pull_master_data(country_batches_to_run = country_batches, start_date = "2020", end_date = "2023", hs_type = hs2)
+pull_master_data(country_batches_to_run = country_batches[3:5], start_date = "2020", end_date = "2023", hs_type = hs2)
 
