@@ -119,23 +119,6 @@ loop_across_countries <- function(batches, start, end, hs) {
     }
     
   }
-  # add id column
-  # trade id
-  final_trade_data <- final_trade_data %>% 
-    mutate(id = paste0(ref_period_id, reporter_iso, flow_code, cmd_code, partner_iso),
-           id = if_else(!grepl("^[0-9]", id), NA, id)) %>% 
-    relocate(id)
-  
-  # service id
-  final_service_data <- final_service_data %>% 
-    mutate(id = paste0(ref_period_id, reporter_iso, flow_code, cmd_code, partner_iso),
-           id = if_else(!grepl("^[0-9]", id), NA, id)) %>% 
-    relocate(id)
-  
-  # macro id
-  final_macro_data <- final_macro_data %>% 
-    mutate(id = paste0(iso3c, year)) %>% 
-    relocate(id)
   
   return(list(goods = final_trade_data, services = final_service_data, macro = final_macro_data))
 }
@@ -217,7 +200,7 @@ sqlite_push <- function(data_list){
         
         # anti join to find the remainder
         macro_data_remainder <- anti_join(pivot_new_macro_table, pivot_macro_table,
-                                          join_by(id, country, iso2c, iso3c, year, var))
+                                          join_by(country, iso2c, iso3c, year, var))
         
         # append if new rows detected
         if (nrow(macro_data_remainder) > 0) {
@@ -250,8 +233,6 @@ sqlite_push <- function(data_list){
     ## Table for Trade goods
     dbExecute(conn, "CREATE TABLE goods (
     
-    id varchar(100),
-    
     freq_code char(1),
     
     ref_period_id INT,
@@ -290,16 +271,12 @@ sqlite_push <- function(data_list){
     
     fobvalue bigint,
     
-    primary_value bigint,
-    
-    PRIMARY KEY (id)
+    primary_value bigint
 )")
     
     ## Table for service data
     dbExecute(conn, "CREATE TABLE services (
     
-    id varchar(100),
-    
     freq_code char(1),
     
     ref_period_id INT,
@@ -338,14 +315,10 @@ sqlite_push <- function(data_list){
     
     fobvalue bigint,
     
-    primary_value bigint,
-    
-    PRIMARY KEY (id)
+    primary_value bigint
 )")
     ## Table for Macroeconomic data
     dbExecute(conn, "CREATE TABLE macro (
-              
-              id varchar (100),
               
               country TEXT,
               
@@ -365,9 +338,7 @@ sqlite_push <- function(data_list){
               
               current_account INT,
               
-              fdi INT,
-              
-              PRIMARY KEY (id)
+              fdi INT
               
     )")
     
@@ -385,9 +356,9 @@ sqlite_push <- function(data_list){
 }
 
 
-# test <- loop_across_countries(country_batches[1], start = "2014", "2023", hs = hs2)
+#test <- loop_across_countries(country_batches[2], start = "2020", "2023", hs = hs2)
 
-# sqlite_push(data_list = test)
+#sqlite_push(data_list = test)
 
 # db_data_test <- dbGetQuery(conn, "SELECT * FROM goods WHERE reporter_iso in ('ARG', 'AUS', 'AUT')")
 
