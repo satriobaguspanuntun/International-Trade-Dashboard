@@ -12,6 +12,6 @@ There is a saying if you're building a house without a proper structure then it 
 
 ## Phase 1 : Pull datasets and push it to SQLite database
 
-## Phase 2 : Designing and building THE dashboard 
+## Phase 2 : Designing and building THE dashboard
 
 ## Phase 3: Host it online through shinyapps.io.
