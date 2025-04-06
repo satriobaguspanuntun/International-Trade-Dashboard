@@ -330,15 +330,25 @@ sqlite_push <- function(data_list){
               
               gdp_nominal INT,
               
-              gdp_nominal_growth INT,
+              gdp_per_capita_current INT,
+              
+              gdp_per_capita_growth INT,
+              
+              export_gdp_percent INT,
               
               inflation INT,
               
               unemployment INT,
               
+              population INT,
+              
+              net_migration INT,
+              
               current_account INT,
               
-              fdi INT
+              fdi INT,
+              
+              gross_capital_formation INT
               
     )")
     

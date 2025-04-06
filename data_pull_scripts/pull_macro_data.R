@@ -259,15 +259,15 @@ wdi_dat_function <- function(countries, start, end) {
   
   container <- list()
   
-  series_id <- c("NY.GDP.MKTP.CD", "NY.GDP.MKTP.KD.ZG",
-                 "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS", "BN.CAB.XOKA.CD",
-                 "BX.KLT.DINV.CD.WD")
+  series_id <- c("NY.GDP.MKTP.CD", "NY.GDP.PCAP.CD","NY.GDP.MKTP.KD.ZG", "NE.EXP.GNFS.ZS",
+                 "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS", "SP.POP.TOTL", "SM.POP.NETM","BN.CAB.XOKA.CD",
+                 "BX.KLT.DINV.CD.WD", "NE.GDI.TOTL.ZS")
   
   cli::cli_h1("Pulling Macroeconomic data from WDI database")
   
   for (series in seq_along(series_id)) {
     
-    cli::cli_bullets(paste0("Downloading Series type: ", series_id[series]))
+    cli::cli_bullets(paste0("Downloading WDI Series type: ", series_id[series]))
     
     macro_data <- tryCatch({
       
@@ -293,11 +293,16 @@ wdi_dat_function <- function(countries, start, end) {
   final_data <- container |> 
     purrr::reduce(inner_join, by = c("country", "iso2c", "iso3c", "year")) %>% 
     rename("gdp_nominal" = "NY.GDP.MKTP.CD",
-           "gdp_nominal_growth" = "NY.GDP.MKTP.KD.ZG",
+           "gdp_per_capita_current" = "NY.GDP.PCAP.CD",
+           "gdp_per_capita_growth" = "NY.GDP.MKTP.KD.ZG",
+           "export_gdp_percent" = "NE.EXP.GNFS.ZS",
            "inflation" = "FP.CPI.TOTL.ZG",
            "unemployment" = "SL.UEM.TOTL.ZS",
+           "population" = "SP.POP.TOTL",
+           "net_migration" = "SM.POP.NETM",
            "current_account" = "BN.CAB.XOKA.CD",
-           "fdi" = "BX.KLT.DINV.CD.WD")
+           "fdi" = "BX.KLT.DINV.CD.WD",
+           "gross_capital_formation" = "NE.GDI.TOTL.ZS")
   
   # delete labels from the columns
   col <- names(final_data)[5:ncol(final_data)]
@@ -328,4 +333,5 @@ wdi_dat_function <- function(countries, start, end) {
   
   return(final_data)
 }
+
   
