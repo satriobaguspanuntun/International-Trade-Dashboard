@@ -4,7 +4,7 @@ library(tidyverse)
 library(RSQLite)
 
 ## Connection specs
-conn <- dbConnect(SQLite(), "master_db.db")
+conn <- dbConnect(SQLite(), "~/international-Trade-Dashboard/master_db.db")
 
 # 1. pull export data -------------------
 
@@ -59,12 +59,12 @@ sql_year_range <- function(conn) {
                            AND goods.flow_code = services.flow_code
                            AND goods.period = services.period"
   
-  trade_year_range <- dbGetQuery(conn, sql_goods_year_range)
+  trade_year_range <- dbGetQuery(conn, sql_trade_year_range)
   
   # macro year range
   sql_macro_year_range <- "SELECT DISTINCT macro.year FROM macro"
   
   macro_year_range <- dbGetQuery(conn, sql_macro_year_range)
   
-  return(list(macro_year_range, sql_trade_year_range))
+  return(list(macro_year = macro_year_range, trade_year = trade_year_range))
 }

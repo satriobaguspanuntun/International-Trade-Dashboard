@@ -2,7 +2,15 @@ library(shiny)
 library(shinyWidgets)
 library(tidyverse)
 library(bs4Dash)
+library(lubridate)
+library(RSQLite)
+library(plotly)
+library(DT)
 
+#source("~/international-Trade-Dashboard/app/ui.R")
+#source("~/international-Trade-Dashboard/app/server.R")
+source("~/international-Trade-Dashboard/sql_queries.R")
+options(scipen = 999)
 
 ## OBJECTIVE -----
 # design macro-dahsboard
@@ -10,16 +18,25 @@ library(bs4Dash)
 # design forecasting and modelling dashboard (particularly for macro)
 
 ### Pre-requisite parameters and values ###
+
+# fetch year query
+year_range_table <- sql_year_range(conn)
+
 # country code
-country_code <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
+countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
 
 # max year in database
-max_year_macro <- 
+max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year))
+max_year_trade <- as.character(max(year_range_table[["trade_year"]]$goods_years))
 
 # min year in database
+min_year_macro <- as.character(min(year_range_table[["macro_year"]]$year))
+min_year_trade <- as.character(min(year_range_table[["trade_year"]]$goods_years))
 
 ### load dataset
 # macro
+macro_main_dataset <- sql_macro_query(conn, start = min_year_macro, end = max_year_macro)
+
 # trade (not a wise thing to do due here due to the amount of data it has.)
 
 ui <- dashboardPage(
@@ -158,10 +175,12 @@ ui <- dashboardPage(
               airDatepickerInput(
                 inputId = "macro_stats_country_start_date",
                 label = "Start Year",
-                value = Sys.Date(),
+                value = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
                 dateFormat = "yyyy",
                 view = "years",
                 minView = "years",
+                minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
+                maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
                 width = "100%"
               )
             ),
@@ -173,10 +192,12 @@ ui <- dashboardPage(
               airDatepickerInput(
                 inputId = "macro_stats_country_end_date",
                 label = "End Year",
-                value = Sys.Date(),
+                value = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
                 dateFormat = "yyyy",
                 view = "years",
                 minView = "years",
+                minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
+                maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
                 width = "100%"
               )
             ),
@@ -306,6 +327,24 @@ ui <- dashboardPage(
               )
             )
           )
+        ),
+        fluidRow(
+          tabBox(id = "macro_tab",
+                 width = 12,
+                 title = "Macroeconomic Indicator Table",
+                 status = "olive",
+                 type = "tabs",
+                 solidHeader = TRUE,
+                 tabPanel(
+                   title = "Data Table",
+                   DTOutput("macro_data_table")
+                 ),
+                 
+                 tabPanel(
+                   title = "5 Year CAGR",
+                   DTOutput("macro_cagr_table")
+                 )
+              )
         )
       )
     )
@@ -318,8 +357,95 @@ server <- function(input, output) {
   
   ### Compile necessary dataset and make it reactivevals - so that it'll keep on updating
   ### based on user input.
+  macro_input <- reactiveValues(country = "Argentina",
+                                start_year = 2015,
+                                end_year = 2023)
+  
+  ### Update reactive values when inputs change
+  observe({
+    macro_input$country <- input$macro_stats_country_input
+    macro_input$start_year <- as.numeric(substr(input$macro_stats_country_start_date, 1, 4))
+    macro_input$end_year <- as.numeric(substr(input$macro_stats_country_end_date, 1, 4))
+  })
   
   ### Data Manipulation if necessary before plotting
+  # filter macro data based on inputs
+  
+  macro_data_filter <- eventReactive(input$run_macro_main_stats, {
+    
+    # year range input
+    year_input <- seq(macro_input$start_year, macro_input$end_year, by = 1)
+    
+    # Filter data based on country and year
+    data_filter <- data_macro %>% 
+      filter(country == macro_input$country, year %in% year_input) 
+    
+    return(data_filter)
+  })
+  
+  # Debugging: Print the first few rows of the filtered data
+  observe({
+    print(macro_data_filter() %>% select(country, year, seq))
+  })
+  
+  ### valueboxes
+  calc_valuebox_macro <- function(data, type) {
+    
+    # sense check 
+    if (!is.data.frame(data)) {
+      stop("Please supply the data in a dataframe format")
+    }
+    
+    if (!is.character(type)) {
+      stop("Type has to be in character or string")
+    }
+    
+    # switch function
+    output_valuebox <- switch(type, 
+                              # inflation
+                              "inflation" = {x <- data %>% 
+                                mutate(year = as.numeric(year)) %>% 
+                                select(country, year, inflation) %>% 
+                                filter(year == max(year)) %>% 
+                                mutate(year = as.character(year),
+                                       inflation = round(inflation, 2))
+                              
+                              x <- paste0(x$inflation, " %")},
+                              
+                              # GDP
+                              "gdp" = {x <- data %>% 
+                                mutate(year = as.numeric(year)) %>% 
+                                select(country, year, gdp_nominal) %>% 
+                                filter(year == max(year)) %>% 
+                                mutate(year = as.character(year),
+                                       gdp_nominal = format(round(gdp_nominal/1000000000, 2), digits = 1 ,big.mark=","))
+                              
+                              x <- paste0("$",x$gdp_nominal, " Billion")},
+                              
+                              # current account
+                              "current" = {x <- data %>% 
+                                mutate(year = as.numeric(year)) %>% 
+                                select(country, year, current_account) %>% 
+                                filter(year == max(year)) %>% 
+                                mutate(year = as.character(year),
+                                       current_account = format(round(current_account/1000000000, 2), digits = 1,big.mark=","))
+                              
+                              x <- paste0("$", x$current_account, " Billion")},
+                              
+                              # unemployment
+                              "unemployment" = {x <- data %>% 
+                                mutate(year = as.numeric(year)) %>% 
+                                select(country, year, unemployment) %>% 
+                                filter(year == max(year)) %>% 
+                                mutate(year = as.character(year),
+                                       unemployment = round(unemployment, 2))
+                              
+                              x <- paste0(x$unemployment, " %")}
+    )
+    return(output_valuebox)
+  }
+  
+  
   
   ### Plotting
 }
