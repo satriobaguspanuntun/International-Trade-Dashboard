@@ -217,43 +217,19 @@ ui <- dashboardPage(
         fluidRow(
           column(
             width = 3,
-                 valueBox(
-                   value = h4("3.5%"),
-                   subtitle = "Inflation",
-                   color = "primary",
-                   icon = icon("shopping-cart"),
-                   width = 12
-                 )
+            valueBoxOutput(outputId = "macro_valuebox_inflation",width = 12)
             ),
           column(
             width = 3,
-            valueBox(
-              value = h4("$100 Billion"),
-              subtitle = "GDP",
-              color = "info",
-              icon = icon("bar-chart"),
-              width = 12
-            )
+            valueBoxOutput(outputId = "macro_valuebox_gdp",width = 12)
           ),
           column(
             width = 3,
-            valueBox(
-              value = h4("$-35 Million"),
-              subtitle = "Current Account",
-              color = "teal",
-              icon = icon("gear"),
-              width = 12
-            )
+            valueBoxOutput(outputId = "macro_valuebox_current",width = 12)
           ),
           column(
             width = 3,
-            valueBox(
-              value = h4("5%"),
-              subtitle = "Unemployment",
-              color = "lightblue",
-              icon = icon("line-chart"),
-              width = 12
-            )
+            valueBoxOutput(outputId = "macro_valuebox_unemployment",width = 12)
           )
         ),
         fluidRow(
@@ -377,15 +353,10 @@ server <- function(input, output) {
     year_input <- seq(macro_input$start_year, macro_input$end_year, by = 1)
     
     # Filter data based on country and year
-    data_filter <- data_macro %>% 
+    data_filter <- macro_main_dataset %>% 
       filter(country == macro_input$country, year %in% year_input) 
     
     return(data_filter)
-  })
-  
-  # Debugging: Print the first few rows of the filtered data
-  observe({
-    print(macro_data_filter() %>% select(country, year, seq))
   })
   
   ### valueboxes
@@ -445,7 +416,55 @@ server <- function(input, output) {
     return(output_valuebox)
   }
   
+  observe({
+    test_box <- calc_valuebox_macro(macro_data_filter(), type = "inflation")
+    print(test_box)
+  })
   
+  # valuebox creation
+  # inflation
+  output$macro_valuebox_inflation <- renderValueBox({
+    valueBox(
+      value = h4(calc_valuebox_macro(macro_data_filter(), type = "inflation")),
+      subtitle = "Inflation",
+      color = "primary",
+      icon = icon("shopping-cart"),
+      width = 12
+    )
+  })
+  
+  # GDP
+  output$macro_valuebox_gdp <- renderValueBox({
+    valueBox(
+      value = h4(calc_valuebox_macro(macro_data_filter(), type = "gdp")),
+      subtitle = "GDP",
+      color = "info",
+      icon = icon("bar-chart"),
+      width = 12
+    )
+  })
+  
+  # current account
+  output$macro_valuebox_current <- renderValueBox({
+    valueBox(
+      value = h4(calc_valuebox_macro(macro_data_filter(), type = "current")),
+      subtitle = "Current Account",
+      color = "teal",
+      icon = icon("gear"),
+      width = 12
+    )
+  })
+  
+  # unemployment
+  output$macro_valuebox_unemployment <- renderValueBox({
+    valueBox(
+      value = h4(calc_valuebox_macro(macro_data_filter(), type = "unemployment")),
+      subtitle = "Unemployment",
+      color = "lightblue",
+      icon = icon("line-chart"),
+      width = 12
+    )
+  })
   
   ### Plotting
 }
