@@ -6,6 +6,8 @@ library(lubridate)
 library(RSQLite)
 library(plotly)
 library(DT)
+library(RColorBrewer)
+library(shinycssloaders)
 
 #source("~/international-Trade-Dashboard/app/ui.R")
 #source("~/international-Trade-Dashboard/app/server.R")
@@ -60,11 +62,6 @@ ui <- dashboardPage(
         menuSubItem(
           text = "Main Statistics",
           tabName = "macro_main_stats",
-          icon = icon("circle")
-        ),
-        menuSubItem(
-          text = "Comparison Section",
-          tabName = "macro_comp_stats",
           icon = icon("circle")
         )
       ),
@@ -241,12 +238,14 @@ ui <- dashboardPage(
               status = "olive",
               title = "Output Statistics",
               plotlyOutput(outputId = "output_stats"),
+              maximizable = TRUE,
               sidebar = boxSidebar(
                 id = "output_sidebar",
                 background = "#7f7f7f",
                 pickerInput(
                   inputId = "output_sidebar_input",
                   label = "Select Indicator",
+                  selected = "GDP Nominal",
                   choices = c("GDP Nominal", "GDP Per Capita", "GDP Per Capita Growth", "Export to GDP")
                 )
                )
@@ -256,14 +255,16 @@ ui <- dashboardPage(
               width = 12,
               status = "olive",
               title = "Price Statistics",
-              plotOutput(outputId = "price_stats"),
+              plotlyOutput(outputId = "price_stats"),
+              maximizable = TRUE,
               sidebar = boxSidebar(
                 id = "price_sidebar",
                 background = "#7f7f7f",
                 pickerInput(
                   inputId = "price_sidebar_input",
                   label = "Select Indicator",
-                  choices = c("Inlation")
+                  selected = "Inflation",
+                  choices = c("Inflation")
                 )
               )
             )
@@ -275,13 +276,15 @@ ui <- dashboardPage(
               width = 12,
               status = "olive",
               title = "Labour Statistics",
-              plotOutput(outputId = "labour_stats"),
+              plotlyOutput(outputId = "labour_stats"),
+              maximizable = TRUE,
               sidebar = boxSidebar(
                 id = "labour_sidebar",
                 background = "#7f7f7f",
                 pickerInput(
                   inputId = "labour_sidebar_input",
                   label = "Select Indicator",
+                  selected = "Unemployment",
                   choices = c("Unemployment", "Population", "Net Migration")
                 )
               )
@@ -291,13 +294,15 @@ ui <- dashboardPage(
               width = 12,
               title = "Finance & Debt Statistics",
               status = "olive",
-              plotOutput(outputId = "fin_debt_stats"),
+              plotlyOutput(outputId = "fin_debt_stats"),
+              maximizable = TRUE,
               sidebar = boxSidebar(
                 id = "fin_debt_sidebar",
                 background = "#7f7f7f",
                 pickerInput(
                   inputId = "fin_debt_sidebar_input",
                   label = "Select Indicator",
+                  selected = "Current Account",
                   choices = c("Current Account", "FDI", "Gross Capital Formation")
                 )
               )
@@ -313,12 +318,16 @@ ui <- dashboardPage(
                  solidHeader = TRUE,
                  tabPanel(
                    title = "Data Table",
-                   DTOutput("macro_data_table")
-                 ),
-                 
-                 tabPanel(
-                   title = "5 Year CAGR",
-                   DTOutput("macro_cagr_table")
+                   radioGroupButtons(inputId = "select_macro_table_grouping",
+                                     label = "Select Grouping",
+                                     choiceNames = c("Output", "Price", "Labour", "Finance & Debt"),
+                                     choiceValues = c("output", "price", "labour", "financial"),
+                                     selected = "output",
+                                     justified = TRUE,
+                                     status = "primary"),
+                  withSpinner(DTOutput("macro_data_table"),
+                              caption = "Please Wait",
+                              type = 8)
                  )
               )
         )
@@ -349,12 +358,19 @@ server <- function(input, output) {
   
   macro_data_filter <- eventReactive(input$run_macro_main_stats, {
     
+    # show spinner
+    showPageSpinner()
+    
     # year range input
     year_input <- seq(macro_input$start_year, macro_input$end_year, by = 1)
+    Sys.sleep(1)
     
     # Filter data based on country and year
     data_filter <- macro_main_dataset %>% 
       filter(country == macro_input$country, year %in% year_input) 
+    
+    # hide spinner
+    hidePageSpinner()
     
     return(data_filter)
   })
@@ -416,11 +432,6 @@ server <- function(input, output) {
     return(output_valuebox)
   }
   
-  observe({
-    test_box <- calc_valuebox_macro(macro_data_filter(), type = "inflation")
-    print(test_box)
-  })
-  
   # valuebox creation
   # inflation
   output$macro_valuebox_inflation <- renderValueBox({
@@ -466,7 +477,274 @@ server <- function(input, output) {
     )
   })
   
+  observe({print(input$output_sidebar_input)})
+  observe({print(input$price_sidebar_input)})
+  observe({print(input$labour_sidebar_input)})
+  observe({print(input$fin_debt_sidebar_input)})
+  
+  # filter data by column
+  macro_data_final <- reactive({
+    
+    # wide to long format
+    macro_data_long <- pivot_longer(data = macro_data_filter(),
+                                    cols = gdp_nominal:gross_capital_formation,
+                                    names_to = "var",
+                                    values_to = "values") %>% 
+      group_by(country, year) %>% 
+      mutate(var_grouping = case_when(var %in% c("gdp_nominal", "gdp_per_capita_current",
+                                                 "gdp_per_capita_growth", "export_gdp_percent") ~ "output",
+                                      var %in% c("inflation") ~ "price",
+                                      var %in% c("unemployment", "population", "net_migration") ~ "labour",
+                                      var %in% c("current_account", "fdi", "gross_capital_formation") ~ "financial",
+                                      .default = "NA"),
+             
+             var_name = case_when(var == "gdp_nominal" ~ "GDP Nominal",
+                                  var == "gdp_per_capita_current" ~ "GDP Per Capita",
+                                  var == "gdp_per_capita_growth" ~ "GDP Per Capita Growth",
+                                  var == "export_gdp_percent" ~ "Export to GDP",
+                                  var == "inflation" ~ "Inflation",
+                                  var == "unemployment" ~ "Unemployment",
+                                  var == "population" ~ "Population",
+                                  var == "net_migration" ~ "Net Migration",
+                                  var == "current_account" ~ "Current Account",
+                                  var == "fdi" ~ "FDI",
+                                  var == "gross_capital_formation" ~ "Gross Capital Formation",
+                                  .default = "NA"))
+    
+  })
+  
+  # data for plot
+  macro_data_plot <- reactive({
+    
+    macro_data_wide <- macro_data_final() %>%
+      select(-c(var, var_grouping)) %>% 
+      relocate(country, iso3c, year, var_name, values) %>% 
+      group_by(year, country, var_name) %>% 
+      mutate(row = row_number()) %>% 
+      ungroup() %>% 
+      pivot_wider(names_from = var_name, values_from = values)
+      
+  })
+  
+  observe({print(input$select_macro_table_grouping)})
+  
+  # data for the table
+  macro_data_table <- reactive({
+    
+    macro_table <- macro_data_final() %>% 
+      ungroup() %>% 
+      filter(var_grouping == as.character(input$select_macro_table_grouping)) %>% 
+      select(-c(var, var_grouping)) %>% 
+      pivot_wider(names_from = var_name, values_from = values)
+    
+  })
+  
   ### Plotting
+  # output plot 
+  output$output_stats <- renderPlotly({
+    
+    output_plot <- plot_ly(
+      macro_data_plot(),
+      x = ~year,
+      y = ~select(macro_data_plot(), input$output_sidebar_input) %>% pull(),
+      type = 'scatter',
+      mode = 'lines+markers',
+      line = list(color = '#1f77b4', width = 2),
+      marker = list(color = '#1f77b4', width = 4),
+      connectgaps = TRUE,
+      symbol = I('diamond')
+    ) %>%
+      layout(
+        title = list(
+          text = paste0(input$output_sidebar_input)
+        ),
+        xaxis = list(
+          title = "",
+          tickmode = "linear",
+          dtick = 1,
+          tickangle = -45,
+          showgrid = FALSE,
+          zeroline = FALSE
+        ),
+        yaxis = list(
+          title = ifelse(input$output_sidebar_input %in% c("GDP Nominal", "GDP Per Capita"), 
+                         "$ USD", 
+                         "% Percentage"),
+          showgrid = TRUE,
+          gridcolor = 'rgba(200,200,200,0.3)',
+          zeroline = FALSE
+        ),
+        margin = list(l = 30, r = 15, b = 15, t = 30)
+      )
+  })
+  
+  observe({head(macro_data_plot())})
+  
+  #  price plot 
+  output$price_stats <- renderPlotly({
+    
+    value <- select(macro_data_plot(), input$price_sidebar_input) %>% pull()
+    
+    output_plot <- plot_ly(
+      macro_data_plot(),
+      x = ~year,
+      y = ~value,
+      type = 'bar',
+      marker = list(
+        color = value,
+        cmin = 0,
+        cmax = 10,
+        colorscale = "Viridis",  # Scaled gradient
+        colorbar = list(title = ""),
+        showscale = FALSE
+      )
+    ) %>%
+      layout(
+        title = list(
+          text = paste0("Annual ", input$price_sidebar_input)
+        ),
+        xaxis = list(
+          title = "",
+          tickmode = "linear",
+          dtick = 1,
+          tickangle = -45,
+          showgrid = FALSE,
+          zeroline = FALSE
+        ),
+        yaxis = list(
+          title = "% Percentage",
+          showgrid = TRUE,
+          gridcolor = 'rgba(200,200,200,0.3)',
+          zeroline = FALSE
+        ),
+        margin = list(l = 30, r = 15, b = 15, t = 30)
+      )
+  })
+  
+  # labour market plot
+  output$labour_stats <- renderPlotly({
+    
+    output_plot <- plot_ly(
+      macro_data_plot(),
+      x = ~year,
+      y = ~select(macro_data_plot(), input$labour_sidebar_input) %>% pull(),
+      type = 'scatter',
+      mode = 'lines+markers',
+      line = list(color = '#de6d2c', width = 2),
+      marker = list(color = '#de6d2c', width = 4),
+      connectgaps = TRUE,
+      symbol = I('circle')
+    ) %>%
+      layout(
+        title = list(
+          text = paste0(input$labour_sidebar_input)
+        ),
+        xaxis = list(
+          title = "",
+          tickmode = "linear",
+          dtick = 1,
+          tickangle = -45,
+          showgrid = FALSE,
+          zeroline = FALSE
+        ),
+        yaxis = list(
+          title = ifelse(input$labour_sidebar_input %in% c("Unemployment"), 
+                         "% Percentage", 
+                         "Headcount"),
+          showgrid = TRUE,
+          gridcolor = 'rgba(200,200,200,0.3)',
+          zeroline = FALSE
+        ),
+        margin = list(l = 30, r = 15, b = 15, t = 30)
+      )
+  })
+  
+  # finance and debt plot
+  
+  output$fin_debt_stats <- renderPlotly({
+    
+    if (input$fin_debt_sidebar_input %in% c("Current Account")) {
+      
+      curr_account_data <- macro_data_plot() %>% 
+        select(year, `Current Account`) %>% 
+        mutate(curr_label = factor(if_else(`Current Account` < 0, "Deficit", "Surplus"), levels = c("Surplus", "Deficit")))
+      
+      output_plot <- plot_ly(
+        curr_account_data,
+        x = ~year,
+        y = ~`Current Account`,
+        name = ~curr_label,
+        type = 'bar',
+        color = ~curr_label, 
+        colors = c("#28a745", "#dc3545")) %>%
+        layout(
+          title = list(
+            text = "Current Account"
+          ),
+          xaxis = list(
+            title = "",
+            tickmode = "linear",
+            dtick = 1,
+            tickangle = -45,
+            showgrid = FALSE,
+            zeroline = FALSE
+          ),
+          yaxis = list(
+            title = "$ USD",
+            showgrid = TRUE,
+            gridcolor = 'rgba(200,200,200,0.3)',
+            zeroline = FALSE
+          ),
+          margin = list(l = 30, r = 15, b = 15, t = 30)
+        )
+      
+    } else {
+      
+      output_plot <- plot_ly(
+        macro_data_plot(),
+        x = ~year,
+        y = ~select(macro_data_plot(), input$fin_debt_sidebar_input) %>% pull(),
+        type = 'scatter',
+        mode = 'lines+markers',
+        line = list(color = '#08bfa4', width = 2),
+        marker = list(color = '#08bfa4', width = 4),
+        fill = 'tozeroy',
+        fillcolor = '#94f7dd',
+        connectgaps = TRUE,
+        symbol = I('square')
+      ) %>%
+        layout(
+          title = list(
+            text = paste0(input$fin_debt_sidebar_input)
+          ),
+          xaxis = list(
+            title = "",
+            tickmode = "linear",
+            dtick = 1,
+            tickangle = -45,
+            showgrid = FALSE,
+            zeroline = FALSE
+          ),
+          yaxis = list(
+            title = "$ USD",
+            showgrid = TRUE,
+            gridcolor = 'rgba(200,200,200,0.3)',
+            zeroline = FALSE
+          ),
+          margin = list(l = 30, r = 15, b = 15, t = 30)
+        )
+    }
+  })
+  
+  # Data Table Section and 5-year CAGR for each variable
+  output$macro_data_table <- renderDT({
+    Sys.sleep(1)
+    datatable(macro_data_table())
+    
+  })
+  
+  
+  
 }
 
 shinyApp(ui, server)
