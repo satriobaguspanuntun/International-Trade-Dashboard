@@ -437,7 +437,7 @@ server <- function(input, output) {
   output$macro_valuebox_inflation <- renderValueBox({
     valueBox(
       value = h4(calc_valuebox_macro(macro_data_filter(), type = "inflation")),
-      subtitle = "Inflation",
+      subtitle = paste0("Inflation (", max_year_macro,")"),
       color = "primary",
       icon = icon("shopping-cart"),
       width = 12
@@ -448,7 +448,7 @@ server <- function(input, output) {
   output$macro_valuebox_gdp <- renderValueBox({
     valueBox(
       value = h4(calc_valuebox_macro(macro_data_filter(), type = "gdp")),
-      subtitle = "GDP",
+      subtitle = paste0("GDP (", max_year_macro, ")"),
       color = "info",
       icon = icon("bar-chart"),
       width = 12
@@ -459,7 +459,7 @@ server <- function(input, output) {
   output$macro_valuebox_current <- renderValueBox({
     valueBox(
       value = h4(calc_valuebox_macro(macro_data_filter(), type = "current")),
-      subtitle = "Current Account",
+      subtitle = paste0("Current Account (", max_year_macro, ")"),
       color = "teal",
       icon = icon("gear"),
       width = 12
@@ -470,7 +470,7 @@ server <- function(input, output) {
   output$macro_valuebox_unemployment <- renderValueBox({
     valueBox(
       value = h4(calc_valuebox_macro(macro_data_filter(), type = "unemployment")),
-      subtitle = "Unemployment",
+      subtitle = paste0("Unemployment (", max_year_macro, ")"),
       color = "lightblue",
       icon = icon("line-chart"),
       width = 12
@@ -533,8 +533,23 @@ server <- function(input, output) {
     
     macro_table <- macro_data_final() %>% 
       ungroup() %>% 
+      mutate(values = case_when(var_name == "GDP Nominal" ~ paste0("$ ",format(round(values/1000000000, 2), big.mark = ","), "B"),
+                               var_name == "GDP Per Capita" ~ paste0("$ ",format(round(values, 2), big.mark = ",")),
+                               var_name == "GDP Per Capita Growth" ~ paste0(round(values, 2), " %"),
+                               var_name == "Export to GDP" ~ paste0(round(values, 2), " %"),
+                               var_name == "Inflation" ~ paste0(round(values, 2), " %"),
+                               var_name == "Unemployment" ~ paste0(round(values, 2), " %"),
+                               var_name == "Population" ~ paste0(format(round(values/1000000, 2), big.mark = ","), "M"),
+                               var_name == "Net Migration" ~ paste0(format(round(values, 2), big.mark = ",")),
+                               var_name == "Current Account" ~ paste0("$ ",format(round(values/1000000000, 2), big.mark = ","), "B"),
+                               var_name == "FDI" ~ paste0("$ ",format(round(values/1000000000, 2), big.mark = ","), "B"),
+                               var_name == "Gross Capital Formation" ~ paste0(round(values, 2), " %"),
+                               .default = "NA")) %>% 
       filter(var_grouping == as.character(input$select_macro_table_grouping)) %>% 
-      select(-c(var, var_grouping)) %>% 
+      select(-c(var, var_grouping,)) %>% 
+      rename("Country" = country,
+             "ISO3" = iso3c,
+             "Year" = year) %>% 
       pivot_wider(names_from = var_name, values_from = values)
     
   })
@@ -739,10 +754,18 @@ server <- function(input, output) {
   # Data Table Section and 5-year CAGR for each variable
   output$macro_data_table <- renderDT({
     Sys.sleep(1)
-    datatable(macro_data_table())
+    datatable(macro_data_table(),
+              rownames = FALSE,
+              extensions = "Buttons",
+              options = list(
+                scrollY = 400,
+                scroller = TRUE,
+                paging = TRUE,
+                autoWidth = TRUE,
+                dom = 'Bfrtip',
+                buttons = c('csv', 'excel')))
     
   })
-  
   
   
 }
