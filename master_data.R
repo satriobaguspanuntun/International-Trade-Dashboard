@@ -21,7 +21,7 @@ options(scipen = 999)
 ## set start and end date
 
 # start date
-start_pull_date <- "2010"
+start_pull_date <- "2005"
 
 # end date
 end_pull_date <- "2023"
@@ -30,7 +30,7 @@ end_pull_date <- "2023"
 overwrite <- FALSE # False by default but you can adjust it as you see fit.
 
 # number of iteration (at this stage, it's set at 2)
-iteration <- 2
+iteration <- 7
 
 ## Connection specs
 conn <- dbConnect(SQLite(), "master_db.db")

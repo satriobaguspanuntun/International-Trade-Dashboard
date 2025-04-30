@@ -6,9 +6,28 @@ library(RSQLite)
 ## Connection specs
 conn <- dbConnect(SQLite(), "~/international-Trade-Dashboard/master_db.db")
 
-# 1. pull export data -------------------
-
-# 2. pull import data -------------------
+# 1. pull trade data -------------------
+sql_export_query <- function(conn, country, start, end, trade_flow, type) {
+  # incorporate error handling exception (IMPORTANT)
+  
+  start_numeric <- as.numeric(start)
+  end_numeric <- as.numeric(end)
+  
+  date_sql_trade_range <- paste0(as.character(seq.int(start_numeric, end_numeric, by = 1)), collapse = ",")
+  trade_flow <- paste0(trade_flow, collapse = ",")
+  
+  sql_query <- sprintf("SELECT * FROM '%s' 
+                       WHERE period IN (%s) 
+                       AND flow_code = '%s' 
+                       AND reporter_desc = '%s'",
+                       type,
+                       date_sql_trade_range,
+                       trade_flow,
+                       country)
+  
+  data_trade <- dbGetQuery(conn, sql_query)
+  return(data_trade)
+}
 
 # 3. pull macro data --------------------
 sql_macro_query <-  function(conn, start, end) {
@@ -59,7 +78,9 @@ sql_year_range <- function(conn) {
                            AND goods.flow_code = services.flow_code
                            AND goods.period = services.period"
   
-  trade_year_range <- dbGetQuery(conn, sql_trade_year_range)
+  sql <- "SELECT DISTINCT period AS goods_years FROM goods"
+  
+  trade_year_range <- dbGetQuery(conn, sql)
   
   # macro year range
   sql_macro_year_range <- "SELECT DISTINCT macro.year FROM macro"
