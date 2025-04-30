@@ -8,6 +8,8 @@ library(plotly)
 library(DT)
 library(RColorBrewer)
 library(shinycssloaders)
+library(sf)
+library(leaflet)
 
 #source("~/international-Trade-Dashboard/app/ui.R")
 #source("~/international-Trade-Dashboard/app/server.R")
@@ -21,6 +23,9 @@ options(scipen = 999)
 
 ### Pre-requisite parameters and values ###
 
+# world map data
+world_sf <- read_sf("~/international-Trade-Dashboard/data/world-administrative-boundaries.geojson")
+
 # fetch year query
 year_range_table <- sql_year_range(conn)
 
@@ -28,12 +33,12 @@ year_range_table <- sql_year_range(conn)
 countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
 
 # max year in database
-max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year))
-max_year_trade <- as.character(max(year_range_table[["trade_year"]]$goods_years))
+max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year, na.rm = TRUE))
+max_year_trade <- as.character(max(year_range_table[["trade_year"]]$goods_years, na.rm = TRUE))
 
 # min year in database
 min_year_macro <- as.character(min(year_range_table[["macro_year"]]$year))
-min_year_trade <- as.character(min(year_range_table[["trade_year"]]$goods_years))
+min_year_trade <- as.character(min(year_range_table[["trade_year"]]$goods_years, na.rm = TRUE))
 
 ### load dataset
 # macro
@@ -331,6 +336,100 @@ ui <- dashboardPage(
                  )
               )
         )
+      ),
+      tabItem(
+        tabName = "summary_trade_stats",
+        fluidRow(
+          column(
+            width = 4,
+            pickerInput(inputId = "trade_stats_country",
+                        label = "Select Country",
+                        choices = countrycode$iso.name.en,
+                        multiple = FALSE,
+                        options = pickerOptions(style = "btn-outline-dark"),
+                        width = "100%"
+                       )
+        ),
+        column(
+          width = 4,
+          airDatepickerInput(
+            inputId = "trade_stats_year",
+            label = "Year",
+            value = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
+            dateFormat = "yyyy",
+            view = "years",
+            minView = "years",
+            minDate = as.Date(paste0(min_year_trade, "-", "01", "-", "01")),
+            maxDate = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
+            width = "100%",
+          )
+        ),
+        column(
+          width = 4,
+           radioGroupButtons(
+            inputId = "trade_flow_input",
+            label = "Trade Flow",
+            choiceNames = c("Export", "Import"),
+            choiceValues = c("X","M"),
+            status = "success",
+            selected = "X",
+            justified = TRUE
+          )
+        )
+      ),
+      fluidRow(
+        column(
+          width = 12,
+          leafletOutput(outputId = "trade_map_leaflet", height = "500px")
+        )
+      ),
+        fluidRow(
+          column(
+            width = 3,
+            descriptionBlock(
+              number = "17%",
+              numberColor = "success",
+              numberIcon = icon("caret-up"),
+              header = "$999999",
+              text = "Total Two-Way Trade",
+              marginBottom = TRUE
+            )
+          ),
+            column(
+              width = 3,
+              descriptionBlock(
+                number = "-0.75%",
+                numberColor = "danger",
+                numberIcon = icon("caret-down"),
+                header = "$888888",
+                text = "Total Export",
+                marginBottom = TRUE
+              )
+            ),
+          column(
+            width = 3,
+            descriptionBlock(
+              number = "51%",
+              numberColor = "success",
+              numberIcon = icon("caret-up"),
+              header = "$555555",
+              text = "Total Import",
+              marginBottom = TRUE
+            )
+          ),
+          column(
+            width = 3,
+            descriptionBlock(
+              number = "4%",
+              numberColor = "success",
+              numberIcon = icon("caret-up"),
+              header = "$6666666",
+              text = "Trade Balance",
+              rightBorder = FALSE,
+              marginBottom = TRUE
+            )
+          )
+        )
       )
     )
   )
@@ -477,11 +576,6 @@ server <- function(input, output) {
     )
   })
   
-  observe({print(input$output_sidebar_input)})
-  observe({print(input$price_sidebar_input)})
-  observe({print(input$labour_sidebar_input)})
-  observe({print(input$fin_debt_sidebar_input)})
-  
   # filter data by column
   macro_data_final <- reactive({
     
@@ -526,8 +620,6 @@ server <- function(input, output) {
       
   })
   
-  observe({print(input$select_macro_table_grouping)})
-  
   # data for the table
   macro_data_table <- reactive({
     
@@ -546,7 +638,7 @@ server <- function(input, output) {
                                var_name == "Gross Capital Formation" ~ paste0(round(values, 2), " %"),
                                .default = "NA")) %>% 
       filter(var_grouping == as.character(input$select_macro_table_grouping)) %>% 
-      select(-c(var, var_grouping,)) %>% 
+      select(-c(var, var_grouping)) %>% 
       rename("Country" = country,
              "ISO3" = iso3c,
              "Year" = year) %>% 
@@ -592,8 +684,6 @@ server <- function(input, output) {
         margin = list(l = 30, r = 15, b = 15, t = 30)
       )
   })
-  
-  observe({head(macro_data_plot())})
   
   #  price plot 
   output$price_stats <- renderPlotly({
@@ -767,7 +857,116 @@ server <- function(input, output) {
     
   })
   
+  #### TRADE TAB SERVER ####
+  ### Summary Statistic page
+  ## user input.
+  trade_input <- reactiveValues(country = "Argentina",
+                                trade_flow_select = "X",
+                                year = "2023")
   
+  ### Update reactive values when inputs change
+  observe({
+    trade_input$country <- input$trade_stats_country
+    trade_input$trade_flow_select <- input$trade_flow_input
+    trade_input$year <- as.numeric(substr(input$trade_stats_year, 1, 4))
+  })
+  
+  observe({print(trade_input$country)})
+  observe({print(trade_input$trade_flow_select)})
+  observe({print(trade_input$year)})
+  
+  
+  # ### call trade data
+  trade_data <- reactive({
+
+    trade_data_test <- sql_export_query(conn,
+                                        start =  trade_input$year,
+                                        end = trade_input$year,
+                                        trade_flow = trade_input$trade_flow_select,
+                                        type = "goods",
+                                        country = trade_input$country)
+
+  })
+  
+  trade_map_function <- function(world_map_data, trade_data, reporter_iso_select, trade_flow, year_select) {
+    
+    # calculate totals for each partner countries
+    total_data <- trade_data %>% 
+      filter( partner_iso != reporter_iso_select) %>% 
+      group_by(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc) %>% 
+      summarise(total_value_country = sum(primary_value)/1000000000) %>% 
+      ungroup() %>% 
+      filter(flow_code == trade_flow)
+    
+    # joined with world map sf data
+    joined_data_sf <- left_join(world_map_data, total_data, join_by("iso3" == "partner_iso"))
+    joined_data_sf <- st_as_sf(joined_data_sf)
+    
+    # bins & and color
+    mybins <- quantile(joined_data_sf$total_value_country, probs = c(0, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 1), na.rm = TRUE)
+    
+    if (trade_flow == "M") {
+      
+      mypalette <- colorBin(
+        palette = "YlOrBr", domain = joined_data_sf$total_value_country,
+        na.color = "transparent", bins = mybins
+      )
+      
+    } else if (trade_flow == "X") {
+      
+      mypalette <- colorBin(
+        palette = "YlGnBu", domain = joined_data_sf$total_value_country,
+        na.color = "transparent", bins = mybins
+      )
+    }
+    
+    text_label <- paste("Country: ", joined_data_sf$name, "<br/>",
+                        "Area: ", joined_data_sf$continent, "<br/>",
+                        "Trade Flow: ", joined_data_sf$flow_desc, "<br/>",
+                        "Value: ", paste0("$",round(joined_data_sf$total_value_country, 4), "B")) %>%
+      lapply(htmltools::HTML)
+    
+    # leaflet map
+    trade_map <- leaflet(joined_data_sf) %>%
+      addTiles() %>%
+      setView(10, 0, zoom = 2) %>% 
+      addPolygons(
+        stroke = FALSE,
+        fillOpacity = 1,
+        smoothFactor = 0.5,
+        color = ~ mypalette(total_value_country),
+        label = text_label,
+        labelOptions = labelOptions(
+          textsize = "13px",
+          direction = "auto"
+        ),
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#666",
+          fillOpacity = 0.5,
+          bringToFront = TRUE)
+      ) %>%
+      addLegend(
+        pal = mypalette,
+        values = ~total_value_country, 
+        title = ifelse(trade_flow=="M", "Import Value", "Export Value"),
+        opacity = 1,
+        labFormat = labelFormat(prefix = "$", suffix = "B"),
+        position = "bottomright"
+      )
+    
+    return(trade_map)
+  }
+  
+  output$trade_map_leaflet <- renderLeaflet({
+    
+    trade_world_map <- trade_map_function(world_map_data = world_sf,
+                                          trade_data = trade_data(),
+                                          reporter_iso_select = trade_input$country,
+                                          trade_flow = trade_input$trade_flow_select,
+                                          year_select = trade_input$year )
+  })
+
 }
 
 shinyApp(ui, server)
