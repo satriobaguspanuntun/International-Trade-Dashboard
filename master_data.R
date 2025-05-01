@@ -30,7 +30,7 @@ end_pull_date <- "2023"
 overwrite <- FALSE # False by default but you can adjust it as you see fit.
 
 # number of iteration (at this stage, it's set at 2)
-iteration <- 7
+iteration <- 5
 
 ## Connection specs
 conn <- dbConnect(SQLite(), "master_db.db")

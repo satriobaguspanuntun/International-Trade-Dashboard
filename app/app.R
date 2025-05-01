@@ -133,7 +133,7 @@ ui <- dashboardPage(
               subtitle = "Developer Wannabe",
               image = "uiauiacat.jpeg",
               imageElevation = 2,
-              type = 2,
+              type = 2
             ),
             status = "navy",
             "A Honours graduate from Victoria University of Wellington and University of Indonesia,
@@ -347,7 +347,7 @@ ui <- dashboardPage(
                         choices = countrycode$iso.name.en,
                         multiple = FALSE,
                         options = pickerOptions(style = "btn-outline-dark"),
-                        width = "100%"
+                        width = "100%",
                        )
         ),
         column(
@@ -361,7 +361,7 @@ ui <- dashboardPage(
             minView = "years",
             minDate = as.Date(paste0(min_year_trade, "-", "01", "-", "01")),
             maxDate = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
-            width = "100%",
+            width = "100%"
           )
         ),
         column(
@@ -386,48 +386,19 @@ ui <- dashboardPage(
         fluidRow(
           column(
             width = 3,
-            descriptionBlock(
-              number = "17%",
-              numberColor = "success",
-              numberIcon = icon("caret-up"),
-              header = "$999999",
-              text = "Total Two-Way Trade",
-              marginBottom = TRUE
-            )
+            uiOutput("two_way")
           ),
             column(
               width = 3,
-              descriptionBlock(
-                number = "-0.75%",
-                numberColor = "danger",
-                numberIcon = icon("caret-down"),
-                header = "$888888",
-                text = "Total Export",
-                marginBottom = TRUE
-              )
+              uiOutput("trade_export")
             ),
           column(
             width = 3,
-            descriptionBlock(
-              number = "51%",
-              numberColor = "success",
-              numberIcon = icon("caret-up"),
-              header = "$555555",
-              text = "Total Import",
-              marginBottom = TRUE
-            )
+            uiOutput("trade_import")
           ),
           column(
             width = 3,
-            descriptionBlock(
-              number = "4%",
-              numberColor = "success",
-              numberIcon = icon("caret-up"),
-              header = "$6666666",
-              text = "Trade Balance",
-              rightBorder = FALSE,
-              marginBottom = TRUE
-            )
+            uiOutput("trade_balance")
           )
         )
       )
@@ -871,11 +842,6 @@ server <- function(input, output) {
     trade_input$year <- as.numeric(substr(input$trade_stats_year, 1, 4))
   })
   
-  observe({print(trade_input$country)})
-  observe({print(trade_input$trade_flow_select)})
-  observe({print(trade_input$year)})
-  
-  
   # ### call trade data
   trade_data <- reactive({
 
@@ -888,11 +854,11 @@ server <- function(input, output) {
 
   })
   
-  trade_map_function <- function(world_map_data, trade_data, reporter_iso_select, trade_flow, year_select) {
+  trade_map_function <- function(world_map_data, trade_data, trade_flow, year_select) {
     
     # calculate totals for each partner countries
     total_data <- trade_data %>% 
-      filter( partner_iso != reporter_iso_select) %>% 
+      filter(reporter_iso != partner_iso) %>% 
       group_by(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc) %>% 
       summarise(total_value_country = sum(primary_value)/1000000000) %>% 
       ungroup() %>% 
@@ -962,11 +928,203 @@ server <- function(input, output) {
     
     trade_world_map <- trade_map_function(world_map_data = world_sf,
                                           trade_data = trade_data(),
-                                          reporter_iso_select = trade_input$country,
                                           trade_flow = trade_input$trade_flow_select,
                                           year_select = trade_input$year )
   })
+  
+  ## stats trade boxes
+  
+  # call data for both export and import
+  trade_data_for_box <- reactive({
+    
+    # export
+    trade_export <- sql_export_query(conn, 
+                                     country = trade_input$country,
+                                     start = as.character(as.numeric(trade_input$year) - 1),
+                                     end = trade_input$year,
+                                     trade_flow = "X",
+                                     type = "goods")
+    
+    # import
+    trade_import <- sql_export_query(conn, 
+                                     country = trade_input$country,
+                                     start = as.character(as.numeric(trade_input$year) - 1),
+                                     end = trade_input$year,
+                                     trade_flow = "M",
+                                     type = "goods")
+    
+    # append both data
+    trade_all <- do.call(rbind, list(trade_export, trade_import))
+    
+    return(trade_all)
+  })
+  
+  trade_stats_box <- function(data, year = NULL, type, what) {
+    
+    if (what == "value" & !is.null(year)) {
+      
+      data <- data %>% 
+        filter(reporter_iso != partner_iso & period == year) %>%
+        group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc) %>%
+        summarise(total = sum(primary_value)/1000000000) %>%
+        ungroup() %>% select(-flow_code) %>%
+        pivot_wider(names_from = flow_desc, values_from = total) %>%
+        mutate(two_way_trade = Export + Import, trade_balance = Export - Import)
+      
+      
+      trade_stats_value <- switch(type,
+                                  # total two way trade
+                                  "two_way" = {
+                                    x <- paste0("$", round(data$two_way_trade, 2), " Billion")
+                                  },
+                                  # total export
+                                  "export" = {
+                                    x <- paste0("$", round(data$Export, 2), " Billion")
+                                  },
+                                  # total import
+                                  "import" = {
+                                    x <- paste0("$", round(data$Import, 2), " Billion")
+                                  },
+                                  # trade balance
+                                  "trade_balance" = {
+                                    x <- paste0("$", round(data$trade_balance, 2), " Billion")
+                                  }
+      )
+      
+      return(trade_stats_value)
+      
+    } else if (what == "percent" & is.null(year)) {
+      
+      data <- data %>% 
+        filter(reporter_iso != partner_iso) %>%
+        group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc) %>%
+        summarise(total = sum(primary_value)/1000000000) %>%
+        ungroup() %>% select(-flow_code) %>%
+        pivot_wider(names_from = flow_desc, values_from = total) %>%
+        mutate(two_way_trade = Export + Import, trade_balance = Export - Import) %>%
+        pivot_longer(cols = Import:trade_balance,names_to = "var", values_to = "value") %>%
+        arrange(var, period) %>%
+        group_by(reporter_iso, reporter_desc, var) %>% 
+        mutate(growth = (value - lag(value))/lag(value) * 100) %>% 
+        filter(!is.na(growth)) %>% select(-c(period, value)) %>%
+        pivot_wider(names_from = var, values_from = growth)
+      
+      trade_stats_percent <- switch(type,
+                                  # total two way trade
+                                  "two_way" = {
+                                    x <- paste0(round(data$two_way_trade, 2), "%")
+                                  },
+                                  # total export
+                                  "export" = {
+                                    x <- paste0(round(data$Export, 2), "%")
+                                  },
+                                  # total import
+                                  "import" = {
+                                    x <- paste0(round(data$Import, 2), "%")
+                                  },
+                                  # trade balance
+                                  "trade_balance" = {
+                                    x <- paste0(round(data$trade_balance, 2), "%")
+                                  }
+      )
+      return(trade_stats_percent)
+    }
+    
+  }
 
+  ## render text values for stats box
+  # two way trade
+  # Render the percentage and value outputs
+  per_two_way <- reactive({
+    str_remove(trade_stats_box(trade_data_for_box(), type = "two_way", what = "percent"), "/w")
+  })
+  
+  val_two_way <- reactive({
+    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "two_way", what = "value")
+  })
+  
+  output$two_way <- renderUI({
+    number_color <- ifelse(per_two_way() > 0, "success", "danger")
+    number_icon <- ifelse(per_two_way() > 0, "caret-up", "caret-down")
+    descriptionBlock(
+      number = per_two_way(),
+      numberColor = number_color,
+      numberIcon = icon(number_icon),
+      header = val_two_way(),
+      text = "Total Two-Way Trade",
+      marginBottom = FALSE
+    )
+  })
+
+  # total export trade
+  # Render the percentage and value outputs
+  per_export <- reactive({
+    trade_stats_box(trade_data_for_box(), type = "export", what = "percent")
+  })
+  
+  val_export <- reactive({
+    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "export", what = "value")
+  })
+  
+  output$trade_export <- renderUI({
+    number_color <- ifelse(per_export() > 0, "success", "danger")
+    number_icon <- ifelse(per_export() > 0, "caret-up", "caret-down")
+    descriptionBlock(
+      number = per_export(),
+      numberColor = number_color,
+      numberIcon = icon(number_icon),
+      header = val_export(),
+      text = "Total export",
+      marginBottom = FALSE
+    )
+  })
+  
+  # total import trade
+  # Render the percentage and value outputs
+  per_import <- reactive({
+    trade_stats_box(trade_data_for_box(), type = "import", what = "percent")
+  })
+  
+  val_import <- reactive({
+    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "import", what = "value")
+  })
+  
+  output$trade_import <- renderUI({
+    number_color <- ifelse(per_import() > 0, "success", "danger")
+    number_icon <- ifelse(per_import() > 0, "caret-up", "caret-down")
+    descriptionBlock(
+      number = per_import(),
+      numberColor = number_color,
+      numberIcon = icon(number_icon),
+      header = val_import(),
+      text = "Total Import",
+      marginBottom = FALSE
+    )
+  })
+  
+  # total trade balance trade
+  # Render the percentage and value outputs
+  per_balance <- reactive({
+    trade_stats_box(trade_data_for_box(), type = "trade_balance", what = "percent")
+  })
+  
+  val_balance <- reactive({
+    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "trade_balance", what = "value")
+  })
+  
+  output$trade_balance <- renderUI({
+    number_color <- ifelse(per_balance() > 0, "success", "danger")
+    number_icon <- ifelse(per_balance() > 0, "caret-up", "caret-down")
+    descriptionBlock(
+      number = per_balance(),
+      numberColor = number_color,
+      numberIcon = icon(number_icon),
+      header = val_balance(),
+      text = "Trade Balance",
+      marginBottom = FALSE
+    )
+  })
+  
 }
 
 shinyApp(ui, server)
