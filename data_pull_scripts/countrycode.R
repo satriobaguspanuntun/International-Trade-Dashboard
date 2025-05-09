@@ -71,7 +71,7 @@ oecd_iso3_code <- gisco_countrycode |>
 oecd_country_vec <- oecd_iso3_code$ISO3_CODE
 
 # all countries dataframe
-all_countrycode <- gisco_countrycode |> 
+selected_countrycode <- gisco_countrycode |> 
   select(-eu) |> 
   mutate(eu = if_else(ISO3_CODE %in% eu_iso3_code_vec, 1, 0),
          g20 = if_else(ISO3_CODE %in% g20_iso3_code_vec, 1, 0),
@@ -79,10 +79,11 @@ all_countrycode <- gisco_countrycode |>
   filter(eu == 1 | g20 == 1 | oecd == 1)
 
 # save countrycode dataframe 
-saveRDS(all_countrycode, "~/international-Trade-Dashboard/data/countrycode.rds")
+saveRDS(selected_countrycode, "~/international-Trade-Dashboard/data/countrycode.rds")
 
-# create a new table in sqlite and save country meta data
-
+# all countrycode
+all_countrycode <- gisco_countrycode
+saveRDS(all_countrycode, "~/international-Trade-Dashboard/data/all_countrycode.rds")
 
 
 

@@ -10,6 +10,7 @@ library(RColorBrewer)
 library(shinycssloaders)
 library(sf)
 library(leaflet)
+library(glue)
 
 #source("~/international-Trade-Dashboard/app/ui.R")
 #source("~/international-Trade-Dashboard/app/server.R")
@@ -22,6 +23,48 @@ options(scipen = 999)
 # design forecasting and modelling dashboard (particularly for macro)
 
 ### Pre-requisite parameters and values ###
+# nomenclature and concordances
+hs_concord <- readRDS("~/international-Trade-Dashboard/data/hs_concord.rds")
+serv_concord <- readRDS("~/international-Trade-Dashboard/data/serv_concord.rds")
+
+# cleaning and harmonising HS nomenclature
+clean_hs2 <- function(hs) {
+  hs <- hs %>% filter(parent == "TOTAL")
+  hs$text <- gsub("^\\d+\\s*-\\s*", "", hs$text)
+  clean_hs <- hs %>% 
+    mutate(text = case_when(id == "03" ~ "Fish and other aquatic invertebrates",
+                            id == "04" ~ "Dairy produce; birds' eggs; natural honey; n.e.c",
+                            id == "05" ~ "Animal originated products; n.e.c",
+                            id == "06" ~ "Trees and other plants",
+                            id == "08" ~ "Fruit and nuts",
+                            id == "11" ~ "Products of the milling industry; malt, starches",
+                            id == "12" ~ "Oil seeds and oleaginous fruits",
+                            id == "14" ~ "Vegetable plaiting materials; n.e.c",
+                            id == "15" ~ "Animal, vegetable or microbial fats and oils",
+                            id == "16" ~ "Meat, fish, other aquatic invertebrates, preparations thereof",
+                            id == "19" ~ "Preparations of cereals, flour, starch or milk",
+                            id == "24" ~ "Tobacco and manufactured tobacco substitutes",
+                            id == "27" ~ "Mineral fuels or oils and their distillation; bituminous substances",
+                            id == "28" ~ "Inorganic chemicals; compounds of precious metals; rare earth metals; radio-active elements",
+                            id == "32" ~ "Tanning or dyeing extracts",
+                            id == "34" ~ "Soap, organic surface-active agents; washing, lubricating, polishing or scouring preparations",
+                            id == "42" ~ "Articles of leather; saddlery and harness; travel goods, handbags and similar container",
+                            id == "49" ~ "Printed books, newspapers, pictures and other products of the printing industry",
+                            id == "56" ~ "Wadding, felt and nonwovens, special yarns",
+                            id == "58" ~ "Fabrics; special woven fabrics, tufted textile fabrics",
+                            id == "59" ~ "Textile fabrics; impregnated, coated, covered or laminated",
+                            id == "71" ~ "Natural, cultured pearls; precious, semi-precious stones; precious metals",
+                            id == "82" ~ "Tools, implements, cutlery, spoons and forks, of base metal",
+                            id == "85" ~ "Electrical machinery and equipment and parts thereof",
+                            id == "86" ~ "Railway, tramway locomotives, rolling-stock and parts thereof",
+                            id == "87" ~ "Vehicles; other than railway or tramway rolling stock",
+                            id == "90" ~ "Optical, photographic, medical or surgical instruments and apparatus",
+                            id == "94" ~ "Furniture; bedding, mattresses, mattress supports, cushions and similar stuffed furnishings",
+                            .default = text))
+  return(clean_hs)
+}
+
+clean_hs_commod <- clean_hs2(hs_concord)
 
 # world map data
 world_sf <- read_sf("~/international-Trade-Dashboard/data/world-administrative-boundaries.geojson")
@@ -31,6 +74,10 @@ year_range_table <- sql_year_range(conn)
 
 # country code
 countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
+all_countrycode <- readRDS("~/international-Trade-Dashboard/data/all_countrycode.rds")
+
+# limit the country code options by matching the original codes with the one in the database
+
 
 # max year in database
 max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year, na.rm = TRUE))
@@ -339,14 +386,15 @@ ui <- dashboardPage(
       ),
       tabItem(
         tabName = "summary_trade_stats",
+        tags$div(h2("International Trade Statistics")),
+        tags$hr(),
         fluidRow(
           column(
             width = 4,
-            pickerInput(inputId = "trade_stats_country",
+            virtualSelectInput(inputId = "trade_stats_country",
                         label = "Select Country",
                         choices = countrycode$iso.name.en,
                         multiple = FALSE,
-                        options = pickerOptions(style = "btn-outline-dark"),
                         width = "100%",
                        )
         ),
@@ -400,8 +448,49 @@ ui <- dashboardPage(
             width = 3,
             uiOutput("trade_balance")
           )
+        ),
+      tags$br(),
+      fluidRow(
+        column(
+          width = 6,
+          uiOutput("top_export")
+        ), 
+        column(
+          width = 6,
+          uiOutput("top_import")
+        )
+       ),
+      fluidRow(
+        column(
+          width = 6,
+          uiOutput("top_export_commod")
+        ),
+        column(
+          width = 6,
+          uiOutput("top_import_commod")
+        )
+      ),
+      fluidRow(
+        column(
+          width = 4,
+          uiOutput("html_text_export")
+        ),
+        column(
+          width = 8,
+          uiOutput("export_line_chart")
+        )
+      ),
+      fluidRow(
+        column(
+          width = 8,
+          uiOutput("import_line_chart")
+        ),
+        column(
+          width = 4,
+          uiOutput("html_text_import")
         )
       )
+     )
     )
   )
 )
@@ -850,7 +939,10 @@ server <- function(input, output) {
                                         end = trade_input$year,
                                         trade_flow = trade_input$trade_flow_select,
                                         type = "goods",
-                                        country = trade_input$country)
+                                        country = trade_input$country) %>% 
+      mutate(primary_value = as.numeric(primary_value),
+             fobvalue = as.numeric(fobvalue),
+             cifvalue = as.numeric(cifvalue))
 
   })
   
@@ -943,7 +1035,10 @@ server <- function(input, output) {
                                      start = as.character(as.numeric(trade_input$year) - 1),
                                      end = trade_input$year,
                                      trade_flow = "X",
-                                     type = "goods")
+                                     type = "goods") %>% 
+      mutate(primary_value = as.numeric(primary_value),
+             fobvalue = as.numeric(fobvalue),
+             cifvalue = as.numeric(cifvalue))
     
     # import
     trade_import <- sql_export_query(conn, 
@@ -951,7 +1046,10 @@ server <- function(input, output) {
                                      start = as.character(as.numeric(trade_input$year) - 1),
                                      end = trade_input$year,
                                      trade_flow = "M",
-                                     type = "goods")
+                                     type = "goods") %>% 
+      mutate(primary_value = as.numeric(primary_value),
+             fobvalue = as.numeric(fobvalue),
+             cifvalue = as.numeric(cifvalue))
     
     # append both data
     trade_all <- do.call(rbind, list(trade_export, trade_import))
@@ -1124,6 +1222,523 @@ server <- function(input, output) {
       marginBottom = FALSE
     )
   })
+  
+  ## Bar chart showing top 10 export and import partner (selected year)
+  trade_bar_chart <- function(data, trade_flow, year) {
+    
+    data <- data %>%
+      group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc, partner_iso) %>% 
+      summarise(total_value = round(sum(primary_value)/1000000, 4)) %>% 
+      arrange(period, flow_desc, desc(total_value)) %>% 
+      mutate(ranking = row_number()) %>% 
+      filter(ranking <= 10)
+    
+    # Filter and sort data
+    filtered_data <- data %>%
+      filter(flow_code == trade_flow, period == year) %>%
+      arrange(desc(total_value)) %>%
+      mutate(partner_iso = fct_reorder(partner_iso, total_value))
+    
+    if (trade_flow == "X") {
+      
+      # Choose a sequential color palette (e.g., Reds or Blues)
+      color_palette <- colorRampPalette(brewer.pal(9, "Blues"))(nrow(filtered_data))
+      bar_colors <- color_palette[rank(filtered_data$total_value)]
+      
+      # Plot
+      bar_chart <- plot_ly(
+        data = filtered_data,
+        x = ~total_value,
+        y = ~partner_iso,
+        type = 'bar',
+        orientation = 'h',
+        marker = list(
+          color = bar_colors,
+          line = list(color = 'rgba(80, 80, 80, 0.3)', width = 0.3)
+        ),
+        text = ~paste0(partner_iso, "<br>Trade: $", format(round(total_value, 2), big.mark = ",")),
+        hoverinfo = 'text',
+        textposition = 'outside',
+        name = ""
+      ) %>%
+        layout(
+          title = list(
+            text = "Top Export Partners<br><span style='font-size:14px;'></span>",
+            x = 0,
+            font = list(size = 14, family = "Arial", color = "#000")
+          ),
+          xaxis = list(
+            title = list(
+              text = "Total FOB Value (Million USD)",
+              standoff = 30,  # <-- Adds space between axis line and title
+              font = list(size = 14)
+            ),
+            tickformat = ",d",
+            showgrid = TRUE,
+            gridcolor = 'rgba(220, 220, 220, 0.5)',
+            range = c(max(filtered_data$total_value) * 1.3, 0),  # Extended scale
+            zeroline = FALSE,
+            tickfont = list(size = 12)
+          ),
+          yaxis = list(
+            title = "",
+            showgrid = FALSE,
+            tickfont = list(size = 12)
+          ),
+          annotations = list(
+            list(
+              x = 0,
+              y = -0.10,
+              text = "Source: UN Comtrade Database",
+              showarrow = FALSE,
+              xref = 'paper',
+              yref = 'paper',
+              font = list(size = 11, color = 'gray')
+            )
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF",
+          margin = list(l = 5, r = 10, t = 20, b = 50)
+        )
+      
+    } else if (trade_flow == "M") {
+      
+      # Choose a sequential color palette (e.g., Reds or Blues)
+      color_palette <- colorRampPalette(brewer.pal(9, "Reds"))(nrow(filtered_data))
+      bar_colors <- color_palette[rank(filtered_data$total_value)]
+      
+      # Plot
+      bar_chart <- plot_ly(
+        data = filtered_data,
+        x = ~total_value,
+        y = ~partner_iso,
+        type = 'bar',
+        orientation = 'h',
+        marker = list(
+          color = bar_colors,
+          line = list(color = 'rgba(80, 80, 80, 0.3)', width = 0.3)
+        ),
+        text = ~paste0(partner_iso, "<br>Trade: $", format(round(total_value, 2), big.mark = ",")),
+        hoverinfo = 'text',
+        textposition = 'outside',
+        name = ""
+      ) %>%
+        layout(
+          title = list(
+            text = "Top Import Partners<br><span style='font-size:14px;'></span>",
+            x = 0,
+            font = list(size = 14, family = "Arial", color = "#000")
+          ),
+          xaxis = list(
+            title = list(
+              text = "Total CIF Value (Million USD)",
+              standoff = 30,  # <-- Adds space between axis line and title
+              font = list(size = 14)
+            ),
+            tickformat = ",d",
+            showgrid = TRUE,
+            gridcolor = 'rgba(220, 220, 220, 0.5)',
+            range = c(0, max(filtered_data$total_value) * 1.3),  # Extended scale
+            zeroline = FALSE,
+            tickfont = list(size = 12)
+          ),
+          yaxis = list(
+            title = "",
+            showgrid = FALSE,
+            tickfont = list(size = 12), 
+            side = "right"
+          ),
+          annotations = list(
+            list(
+              x = 0,
+              y = -0.10,
+              text = "Source: UN Comtrade Database",
+              showarrow = FALSE,
+              xref = 'paper',
+              yref = 'paper',
+              font = list(size = 11, color = 'gray')
+            )
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF",
+          margin = list(l = 5, r = 10, t = 20, b = 50)
+        )
+      
+    }
+    return(bar_chart)
+  }
+  
+  output$top_export <- renderUI({
+    
+    output$top_10_export_bar <- renderPlotly({trade_bar_chart(data = trade_data_for_box(), 
+                                                              trade_flow = "X",
+                                                              year = trade_input$year)})
+      box(
+        width = 12,
+        status = "primary",
+        collapsible = TRUE,
+        elevation = 4,
+        maximizable = TRUE,
+        title = HTML("<b>Top 10 Export Partners</b>"),
+        plotlyOutput("top_10_export_bar")
+      )
+    
+  })
+  
+  output$top_import <- renderUI({
+    
+    output$top_10_import_bar <- renderPlotly({trade_bar_chart(data = trade_data_for_box(), 
+                                                              trade_flow = "M",
+                                                              year = trade_input$year)})
+      box(
+        width = 12,
+        status = "danger",
+        collapsible = TRUE,
+        elevation = 4,
+        maximizable = TRUE,
+        title = HTML("<b>Top 10 Import Partners</b>"),
+        plotlyOutput("top_10_import_bar")
+      )
+    
+  })
+  
+  ## top 10 export and import commodities
+  
+  # dataset for top commod
+  top_commod_value <- reactive({
+    # use trade_data_for_box
+    commod_val <- trade_data_for_box() %>%
+      left_join(clean_hs_commod, by = join_by(cmd_code == id)) %>% 
+      select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, cmd_code, text, primary_value) %>% 
+      rename("hs_description" = text) %>% 
+      left_join(all_countrycode, by = join_by(partner_iso == ISO3_CODE)) %>% 
+      group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, hs_description) %>% 
+      summarise(total_value_commod = sum(primary_value)/1000000) %>% 
+      arrange(hs_description, flow_desc) %>% 
+      ungroup() %>% 
+      group_by(reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, hs_description) %>% 
+      mutate(growth_rate = (total_value_commod-lag(total_value_commod))/lag(total_value_commod) * 100)
+    
+    return(commod_val)
+  })
+  
+  trade_top_commod_bar_chart <- function(data, trade_flow, year) {
+    
+    # filtered data 
+    filtered_data <- data %>% 
+      filter(flow_code == trade_flow, period == year) %>% 
+      arrange(desc(total_value_commod)) %>% 
+      ungroup() %>% 
+      mutate(cmd_code = fct_reorder(cmd_code, total_value_commod),
+             ranking = row_number()) %>% 
+      filter(ranking <= 10)
+    
+    if (trade_flow == "X") {
+      
+      # Choose a sequential color palette (e.g., Reds or Blues)
+      color_palette <- colorRampPalette(brewer.pal(9, "Greens"))(nrow(filtered_data))
+      bar_colors <- color_palette[rank(filtered_data$total_value_commod)]
+      
+      # Plot
+      bar_chart <- plot_ly(
+        data = filtered_data,
+        x = ~total_value_commod,
+        y = ~cmd_code,
+        type = 'bar',
+        orientation = 'h',
+        marker = list(
+          color = bar_colors,
+          line = list(color = 'rgba(80, 80, 80, 0.3)', width = 0.3)
+        ),
+        text = ~paste0("Trade: $", format(round(total_value_commod, 2), big.mark = ",")),
+        textposition = "outside",
+        hovertext = ~paste0("HS ", cmd_code, ":", hs_description, "<br>Trade: $", format(round(total_value_commod, 2), big.mark = ",")),
+        hoverinfo = "text",
+        name = ""
+      ) %>%
+        layout(
+          title = list(
+            text = "Top Export Commodities<br><span style='font-size:14px;'></span>",
+            x = 0,
+            font = list(size = 14, family = "Arial", color = "#000")
+          ),
+          xaxis = list(
+            title = list(
+              text = "Total FOB Value (Million USD)",
+              standoff = 30,  # <-- Adds space between axis line and title
+              font = list(size = 14)
+            ),
+            tickformat = ",d",
+            showgrid = TRUE,
+            gridcolor = 'rgba(220, 220, 220, 0.5)',
+            range = c(max(filtered_data$total_value_commod) * 1.4, 0),  # Extended scale
+            zeroline = FALSE,
+            tickfont = list(size = 12)
+          ),
+          yaxis = list(
+            title = "",
+            showgrid = FALSE,
+            tickfont = list(size = 12)
+          ),
+          annotations = list(
+            list(
+              x = 0,
+              y = -0.10,
+              text = "Source: UN Comtrade Database",
+              showarrow = FALSE,
+              xref = 'paper',
+              yref = 'paper',
+              font = list(size = 11, color = 'gray')
+            )
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF",
+          margin = list(l = 5, r = 10, t = 20, b = 50)
+        )
+      
+    } else if (trade_flow == "M") {
+      
+      # Choose a sequential color palette (e.g., Reds or Blues)
+      color_palette <- colorRampPalette(brewer.pal(9, "Oranges"))(nrow(filtered_data))
+      bar_colors <- color_palette[rank(filtered_data$total_value_commod)]
+      
+      # Plot
+      bar_chart <- plot_ly(
+        data = filtered_data,
+        x = ~total_value_commod,
+        y = ~cmd_code,
+        type = 'bar',
+        orientation = 'h',
+        marker = list(
+          color = bar_colors,
+          line = list(color = 'rgba(80, 80, 80, 0.3)', width = 0.3)
+        ),
+        text = ~paste0("Trade: $", format(round(total_value_commod, 2), big.mark = ",")),
+        textposition = "outside",
+        hovertext = ~paste0("HS ", cmd_code, ":", hs_description, "<br>Trade: $", format(round(total_value_commod, 2), big.mark = ",")),
+        hoverinfo = "text",
+        name = ""
+      ) %>%
+        layout(
+          title = list(
+            text = "Top Import Commodities<br><span style='font-size:14px;'></span>",
+            x = 0,
+            font = list(size = 14, family = "Arial", color = "#000")
+          ),
+          xaxis = list(
+            title = list(
+              text = "Total CIF Value (Million USD)",
+              standoff = 30,  # <-- Adds space between axis line and title
+              font = list(size = 14)
+            ),
+            tickformat = ",d",
+            showgrid = TRUE,
+            gridcolor = 'rgba(220, 220, 220, 0.5)',
+            range = c(0, max(filtered_data$total_value_commod) * 1.4),  # Extended scale
+            zeroline = FALSE,
+            tickfont = list(size = 12)
+          ),
+          yaxis = list(
+            title = "",
+            showgrid = FALSE,
+            tickfont = list(size = 12), 
+            side = "right"
+          ),
+          annotations = list(
+            list(
+              x = 0,
+              y = -0.10,
+              text = "Source: UN Comtrade Database",
+              showarrow = FALSE,
+              xref = 'paper',
+              yref = 'paper',
+              font = list(size = 11, color = 'gray')
+            )
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF",
+          margin = list(l = 5, r = 10, t = 20, b = 50)
+        )
+      
+    }
+    
+  }
+    
+    output$top_export_commod <- renderUI({
+      
+      output$top_10_export_bar_commod <- renderPlotly({trade_top_commod_bar_chart(data = top_commod_value(), 
+                                                                                  trade_flow = "X",
+                                                                                  year = trade_input$year)})
+      box(
+        width = 12,
+        status = "olive",
+        collapsible = TRUE,
+        elevation = 4,
+        maximizable = TRUE,
+        title = HTML("<b>Top 10 Export Commodities</b>"),
+        plotlyOutput("top_10_export_bar_commod")
+      )
+      
+    })
+    
+    output$top_import_commod <- renderUI({
+      
+      output$top_10_import_bar_commod <- renderPlotly({trade_top_commod_bar_chart(data = top_commod_value(), 
+                                                                                  trade_flow = "M",
+                                                                                  year = trade_input$year)})
+      box(
+        width = 12,
+        status = "orange",
+        collapsible = TRUE,
+        elevation = 4,
+        maximizable = TRUE,
+        title = HTML("<b>Top 10 Import Commodities</b>"),
+        plotlyOutput("top_10_import_bar_commod")
+      )
+      
+    })
+  
+  ## Line chart for export, import and trade balance in one charts split into export and import 
+  ## data (10 years worth of data)
+  # call data for both export and import
+    trade_data_ten_years <- reactive({
+      
+      # export
+      trade_export <- sql_export_query(conn, 
+                                       country = trade_input$country,
+                                       start = as.character(as.numeric(trade_input$year) - 10),
+                                       end = trade_input$year,
+                                       trade_flow = "X",
+                                       type = "goods") %>% 
+        mutate(primary_value = as.numeric(primary_value),
+               fobvalue = as.numeric(fobvalue),
+               cifvalue = as.numeric(cifvalue))
+      
+      # import
+      trade_import <- sql_export_query(conn, 
+                                       country = trade_input$country,
+                                       start = as.character(as.numeric(trade_input$year) - 10),
+                                       end = trade_input$year,
+                                       trade_flow = "M",
+                                       type = "goods") %>% 
+        mutate(primary_value = as.numeric(primary_value),
+               fobvalue = as.numeric(fobvalue),
+               cifvalue = as.numeric(cifvalue))
+      
+      # append both data
+      trade_all <- do.call(rbind, list(trade_export, trade_import))
+      
+      return(trade_all)
+    })
+  
+    html_trade_info_total <- function(data) {
+      
+      ref_year <- unique(data$ref_year)
+      m <- max(ref_year)
+      m_y <- m
+      m_5 <- m - 5
+      m_10 <- m - 10
+      
+      ref_5 <- as.character(ref_year[ref_year %in% seq(m_5, m, 1)])
+      ref_10 <- as.character(ref_year[ref_year %in% seq(m_10, m, 1)])
+      
+      data_for_total_growth <- data %>%
+        nest(data = flow_code:primary_value) %>% 
+        mutate(
+          total = lapply(data, FUN = function(x) x %>% 
+                           group_by(flow_code, flow_desc) %>% 
+                           summarise(total = sum(primary_value)/ 1000000000)))%>% 
+        select(-data) %>% 
+        unnest(total)
+      
+      total_growth_export_import <- function(x, min_y, max_y, code, what) {
+        years <- if (what == "five") ref_5 else ref_10
+        lag_n <- if (what == "five") 5L else 10L
+        
+        x %>%
+          filter(period %in% years, flow_code == code) %>%
+          arrange(reporter_iso, flow_code, period) %>%
+          group_by(reporter_iso, reporter_desc, flow_code, flow_desc) %>%
+          mutate(growth = (total - lag(total, n = lag_n)) / lag(total, n = lag_n) * 100) %>%
+          filter(period %in% as.character(c(min_y, max_y)))
+      }
+      
+      list(
+        tot_5_export  = total_growth_export_import(data_for_total_growth, m_5, m_y, "X", "five"),
+        tot_5_import  = total_growth_export_import(data_for_total_growth, m_5, m_y, "M", "five"),
+        tot_10_export = total_growth_export_import(data_for_total_growth, m_10, m_y, "X", "ten"),
+        tot_10_import = total_growth_export_import(data_for_total_growth, m_10, m_y, "M", "ten")
+      )
+    }
+    
+    text_total_list <- reactive({html_trade_info_total(trade_data_ten_years())})
+  
+    generate_html_text_total <- function(data, what) {
+      
+      list_data <- data
+      type_word <- ifelse(what == "export", "exported", "imported")
+      type_noun <- ifelse(what == "export", "exports", "imports")
+      
+      if (what == "export") {
+        data_5 <- list_data[["tot_5_export"]]
+        data_10 <- list_data[["tot_10_export"]]
+      } else if (what == "import") {
+        data_5 <- list_data[["tot_5_import"]]
+        data_10 <- list_data[["tot_10_import"]]
+      } else {
+        stop("Invalid value for 'what'. Choose 'export' or 'import'.")
+      }
+      
+      # Extract values
+      tot_5_total_min <- data_5[1, "total"]
+      tot_5_total_max <- data_5[2, "total"]
+      tot_5_total_growth <- data_5[2, "growth"]
+      tot_5_total_growth_text <- if_else(tot_5_total_growth > 0, "increased", "decreased")
+      tot_5_year_min <- data_5[1, "period"]
+      tot_5_year_max <- data_5[2, "period"]
+      tot_5_country <- data_5[2, "reporter_desc"]
+      
+      tot_10_total_min <- data_10[1, "total"]
+      tot_10_total_max <- data_10[2, "total"]
+      tot_10_total_growth <- data_10[2, "growth"]
+      tot_10_total_growth_text <- if_else(tot_10_total_growth > 0, "increased", "decreased")
+      tot_10_year_min <- data_10[1, "period"]
+      tot_10_year_max <- data_10[2, "period"]
+      tot_10_country <- data_10[2, "reporter_desc"]
+      
+      # HTML output
+      html_text <- HTML(glue(
+        "<div style='font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; padding-left: 20px; padding-top: 20px; padding-right: 20px;'>
+       <p>
+         <strong>In {tot_5_year_max}</strong>, <strong>{tot_5_country}</strong> {type_word} a total of 
+         <strong>${round(tot_5_total_max, 2)} Billion</strong>.
+       </p>
+       <p>
+         Over the past five years, {tot_5_country}'s {type_noun} 
+         <strong>{tot_5_total_growth_text}</strong> by 
+         <strong>{round(tot_5_total_growth, 0)}%</strong>, 
+         from <strong>${round(tot_5_total_min, 2)} Billion</strong> in 
+         <strong>{tot_5_year_min}</strong> to 
+         <strong>${round(tot_5_total_max, 2)} Billion</strong> in 
+         <strong>{tot_5_year_max}</strong>.
+       </p>
+       <p>
+         Over the past ten years, {type_noun} have 
+         <strong>{tot_10_total_growth_text}</strong> by 
+         <strong>{round(tot_10_total_growth, 0)}%</strong>, from 
+         <strong>${round(tot_10_total_min, 2)} Billion</strong> in 
+         <strong>{tot_10_year_min}</strong> to 
+         <strong>${round(tot_10_total_max, 2)} Billion</strong> in 
+         <strong>{tot_10_year_max}</strong>.
+       </p>
+     </div>"
+      ))
+      
+      return(html_text)
+    }
+    
+    output$html_text_export <- renderText({generate_html_text_total(text_total_list(), what = "export")})
+    output$html_text_import <- renderText({generate_html_text_total(text_total_list(), what = "import")})
   
 }
 

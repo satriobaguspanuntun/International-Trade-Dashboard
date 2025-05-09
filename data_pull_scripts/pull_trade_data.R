@@ -144,7 +144,8 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
                    customs_desc,
                    cifvalue,
                    fobvalue,
-                   primary_value)
+                   primary_value) %>% 
+            mutate(partner_iso = if_else(partner_iso == "S19", "TWN", partner_iso))
         }
       }, error = function(e) {
         message("Error for country: ", i, ", date: ", j, ": ", e)
@@ -199,10 +200,10 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
       data <- ct_get_data(type = "services",
                           frequency = "A",
                           commodity_classification = "EB",
-                          commodity_code = c(200),
+                          commodity_code = "everything",
                           flow_direction = c("import", "re-import", "export", "re-export"),
                           reporter = i,
-                          partner = "World",
+                          partner = "all_countries",
                           start_date = start,
                           end_date = end) 
       

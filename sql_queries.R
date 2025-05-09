@@ -89,3 +89,23 @@ sql_year_range <- function(conn) {
   
   return(list(macro_year = macro_year_range, trade_year = trade_year_range))
 }
+
+# 8. available reporter country code in database -------------------------
+sql_country_code <- function(conn) {
+  
+  # goods available country
+  sql_goods_country_query <- "SELECT DISTINCT goods.reporter_iso FROM goods"
+  
+  # service available country
+  sql_service_country_query <- "SELECT DISCTINCT services.reporter_iso FROM services"
+  
+  # fetch data
+  sql_goods_country <- dbGetQuery(conn, sql_goods_country_query)
+  sql_service_country <- dbGetQuery(conn, sql_service_country_query)
+  
+  
+  
+}
+
+
+
