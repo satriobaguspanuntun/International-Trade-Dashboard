@@ -21,7 +21,7 @@ options(scipen = 999)
 ## set start and end date
 
 # start date
-start_pull_date <- "2010"
+start_pull_date <- "2005"
 
 # end date
 end_pull_date <- "2023"

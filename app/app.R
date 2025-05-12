@@ -4,6 +4,7 @@ library(tidyverse)
 library(bs4Dash)
 library(lubridate)
 library(RSQLite)
+library(highcharter)
 library(plotly)
 library(DT)
 library(RColorBrewer)
@@ -11,6 +12,7 @@ library(shinycssloaders)
 library(sf)
 library(leaflet)
 library(glue)
+library(waiter)
 
 #source("~/international-Trade-Dashboard/app/ui.R")
 #source("~/international-Trade-Dashboard/app/server.R")
@@ -76,9 +78,6 @@ year_range_table <- sql_year_range(conn)
 countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
 all_countrycode <- readRDS("~/international-Trade-Dashboard/data/all_countrycode.rds")
 
-# limit the country code options by matching the original codes with the one in the database
-
-
 # max year in database
 max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year, na.rm = TRUE))
 max_year_trade <- as.character(max(year_range_table[["trade_year"]]$goods_years, na.rm = TRUE))
@@ -91,14 +90,48 @@ min_year_trade <- as.character(min(year_range_table[["trade_year"]]$goods_years,
 # macro
 macro_main_dataset <- sql_macro_query(conn, start = min_year_macro, end = max_year_macro)
 
-# trade (not a wise thing to do due here due to the amount of data it has.)
+# available countries in the database (use goods in the meantime)
+available_countries <- sql_country_code(conn)
+
+# limit the country code options by matching the original codes with the one in the database
+countrycode <- countrycode[countrycode$ISO3_CODE %in% available_countries[["goods_avail_country"]], ]
+
 
 ui <- dashboardPage(
-  title = "Macroeconomic and Trade Dashboard",
+  help = NULL,
+  preloader = list(html = tagList(spin_2(), "Loading ..."), color = "#343a40"),
   header = dashboardHeader(
-    title = "Macroeconomic and Trade Dashboard"),
+    tags$head(
+      tags$style(HTML("
+    .main-header .navbar .navbar-brand {
+      font-weight: 600;
+      font-size: 1.5rem;
+      letter-spacing: 0.5px;
+    }
+  "))
+    ),
+    title = dashboardBrand(
+      title = h5("MacroTrade Insight"),
+      color = "navy",
+      image = "logo.jpg",
+      opacity = 0.9
+    ),
+    skin = "light",  
+    status = "white", 
+    border = TRUE,  
+    compact = FALSE,  
+    controlbarIcon = icon("sliders-h"),  
+    sidebarIcon = icon("bars"),
+    rightUi = tagList(
+      userOutput("user")
+    )  
+   ),
   sidebar = dashboardSidebar(
-    width = "350px",
+    sidebarUserPanel(
+      name = h6("Welcome Onboard!"),
+      image = "logo2.jpg"
+    ),
+    width = "300px",
     sidebarMenu(
       id = "sidebar_menu",
       menuItem(
@@ -151,9 +184,8 @@ ui <- dashboardPage(
       )
     )
   ),
-  controlbar = dashboardControlbar(),
   footer = dashboardFooter(
-    left = "Satrio Bagus Panuntun",
+    left = "MacroTrade Insight",
     right = "2025"
   ),
   body = dashboardBody(
@@ -284,8 +316,8 @@ ui <- dashboardPage(
         fluidRow(
           sortable(
             width = 6,
-
             box(
+              elevation = 4,
               width = 12,
               status = "olive",
               title = "Output Statistics",
@@ -304,6 +336,7 @@ ui <- dashboardPage(
               ),
             
             box(
+              elevation = 4,
               width = 12,
               status = "olive",
               title = "Price Statistics",
@@ -323,8 +356,8 @@ ui <- dashboardPage(
           ),
           sortable(
             width = 6,
-            
             box(
+              elevation = 4,
               width = 12,
               status = "olive",
               title = "Labour Statistics",
@@ -343,6 +376,7 @@ ui <- dashboardPage(
             ),
             
             box(
+              elevation = 4,
               width = 12,
               title = "Finance & Debt Statistics",
               status = "olive",
@@ -363,6 +397,7 @@ ui <- dashboardPage(
         ),
         fluidRow(
           tabBox(id = "macro_tab",
+                 elevation = 4,
                  width = 12,
                  title = "Macroeconomic Indicator Table",
                  status = "olive",
@@ -416,7 +451,7 @@ ui <- dashboardPage(
           width = 4,
            radioGroupButtons(
             inputId = "trade_flow_input",
-            label = "Trade Flow",
+            label = "Trade Flow Map",
             choiceNames = c("Export", "Import"),
             choiceValues = c("X","M"),
             status = "success",
@@ -452,6 +487,12 @@ ui <- dashboardPage(
       tags$br(),
       fluidRow(
         column(
+          width = 12,
+          uiOutput("export_import_line_chart")
+        )
+      ),
+      fluidRow(
+        column(
           width = 6,
           uiOutput("top_export")
         ), 
@@ -472,24 +513,22 @@ ui <- dashboardPage(
       ),
       fluidRow(
         column(
-          width = 4,
-          uiOutput("html_text_export")
-        ),
-        column(
-          width = 8,
-          uiOutput("export_line_chart")
-        )
-      ),
-      fluidRow(
-        column(
-          width = 8,
-          uiOutput("import_line_chart")
-        ),
-        column(
-          width = 4,
-          uiOutput("html_text_import")
+          width = 12,
+          uiOutput("sankey_chart")
         )
       )
+     ),
+     tabItem(
+       tabName = "drilldown_trade",
+       tags$h1("In Progress...")
+     ),
+     tabItem(
+       tabName = "macro_forecast",
+       tags$h1("In Progress...")
+     ),
+     tabItem(
+       tabName = "macro_forecast",
+       tags$h1("In Progress...")
      )
     )
   )
@@ -510,6 +549,16 @@ server <- function(input, output) {
     macro_input$country <- input$macro_stats_country_input
     macro_input$start_year <- as.numeric(substr(input$macro_stats_country_start_date, 1, 4))
     macro_input$end_year <- as.numeric(substr(input$macro_stats_country_end_date, 1, 4))
+  })
+  
+  # generate user profile on the right side of the dashboard header
+  output$user <- renderUser({
+    dashboardUser(
+      name = "MacroTrade Insight",
+      image = "logo2.jpg",
+      title = "Satrio Bagus Panuntun",
+      subtitle = "Author"
+    )
   })
   
   ### Data Manipulation if necessary before plotting
@@ -1390,6 +1439,7 @@ server <- function(input, output) {
     output$top_10_import_bar <- renderPlotly({trade_bar_chart(data = trade_data_for_box(), 
                                                               trade_flow = "M",
                                                               year = trade_input$year)})
+    
       box(
         width = 12,
         status = "danger",
@@ -1398,6 +1448,7 @@ server <- function(input, output) {
         maximizable = TRUE,
         title = HTML("<b>Top 10 Import Partners</b>"),
         plotlyOutput("top_10_import_bar")
+        
       )
     
   })
@@ -1563,12 +1614,158 @@ server <- function(input, output) {
     }
     
   }
+  
+  html_trade_info_total <- function(data) {
+    
+    ref_year <- unique(data$ref_year)
+    m <- max(ref_year)
+    m_y <- m
+    m_5 <- m - 5
+    m_10 <- m - 10
+    
+    ref_5 <- as.character(ref_year[ref_year %in% seq(m_5, m, 1)])
+    ref_10 <- as.character(ref_year[ref_year %in% seq(m_10, m, 1)])
+    
+    data_for_total_growth <- data %>%
+      nest(data = flow_code:primary_value) %>% 
+      mutate(
+        total = lapply(data, FUN = function(x) x %>% 
+                         group_by(flow_code, flow_desc) %>% 
+                         summarise(total = sum(primary_value)/ 1000000000)))%>% 
+      select(-data) %>% 
+      unnest(total)
+    
+    total_growth_export_import <- function(x, min_y, max_y, code, what) {
+      years <- if (what == "five") ref_5 else ref_10
+      lag_n <- if (what == "five") 5L else 10L
+      
+      x %>%
+        filter(period %in% years, flow_code == code) %>%
+        arrange(reporter_iso, flow_code, period) %>%
+        group_by(reporter_iso, reporter_desc, flow_code, flow_desc) %>%
+        mutate(growth = (total - lag(total, n = lag_n)) / lag(total, n = lag_n) * 100) %>%
+        filter(period %in% as.character(c(min_y, max_y)))
+    }
+    
+    list(
+      tot_5_export  = total_growth_export_import(data_for_total_growth, m_5, m_y, "X", "five"),
+      tot_5_import  = total_growth_export_import(data_for_total_growth, m_5, m_y, "M", "five"),
+      tot_10_export = total_growth_export_import(data_for_total_growth, m_10, m_y, "X", "ten"),
+      tot_10_import = total_growth_export_import(data_for_total_growth, m_10, m_y, "M", "ten")
+    )
+  }
+  
+  text_total_list <- reactive({html_trade_info_total(trade_data_ten_years())})
+  
+  generate_html_text_total <- function(data, what) {
+    
+    list_data <- data
+    type_word <- ifelse(what == "export", "exported", "imported")
+    type_noun <- ifelse(what == "export", "exports", "imports")
+    
+    if (what == "export") {
+      data_5 <- list_data[["tot_5_export"]]
+      data_10 <- list_data[["tot_10_export"]]
+    } else if (what == "import") {
+      data_5 <- list_data[["tot_5_import"]]
+      data_10 <- list_data[["tot_10_import"]]
+    } else {
+      stop("Invalid value for 'what'. Choose 'export' or 'import'.")
+    }
+    
+    # Extract values
+    tot_5_total_min <- data_5[1, "total"]
+    tot_5_total_max <- data_5[2, "total"]
+    tot_5_total_growth <- data_5[2, "growth"]
+    tot_5_total_growth_text <- if_else(tot_5_total_growth > 0, "increased", "decreased")
+    tot_5_year_min <- data_5[1, "period"]
+    tot_5_year_max <- data_5[2, "period"]
+    tot_5_country <- data_5[2, "reporter_desc"]
+    
+    tot_10_total_min <- data_10[1, "total"]
+    tot_10_total_max <- data_10[2, "total"]
+    tot_10_total_growth <- data_10[2, "growth"]
+    tot_10_total_growth_text <- if_else(tot_10_total_growth > 0, "increased", "decreased")
+    tot_10_year_min <- data_10[1, "period"]
+    tot_10_year_max <- data_10[2, "period"]
+    tot_10_country <- data_10[2, "reporter_desc"]
+    
+    # HTML output
+    html_text <- HTML(glue(
+      "<div style='font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; padding-left: 20px; padding-top: 20px; padding-right: 20px; padding-bottom: 20px;'>
+       <p>
+         <strong>In {tot_5_year_max}</strong>, <strong>{tot_5_country}</strong> {type_word} a total of 
+         <strong>${round(tot_5_total_max, 2)} Billion</strong>.
+       </p>
+       <p>
+         Over the past five years, {tot_5_country}'s {type_noun} 
+         <strong>{tot_5_total_growth_text}</strong> by 
+         <strong>{round(tot_5_total_growth, 0)}%</strong>, 
+         from <strong>${round(tot_5_total_min, 2)} Billion</strong> in 
+         <strong>{tot_5_year_min}</strong> to 
+         <strong>${round(tot_5_total_max, 2)} Billion</strong> in 
+         <strong>{tot_5_year_max}</strong>.
+       </p>
+       <p>
+         Over the past ten years, {type_noun} have 
+         <strong>{tot_10_total_growth_text}</strong> by 
+         <strong>{round(tot_10_total_growth, 0)}%</strong>, from 
+         <strong>${round(tot_10_total_min, 2)} Billion</strong> in 
+         <strong>{tot_10_year_min}</strong> to 
+         <strong>${round(tot_10_total_max, 2)} Billion</strong> in 
+         <strong>{tot_10_year_max}</strong>."
+    ))
+    
+    return(html_text)
+  }
+  
+  generate_commodities_html <- function(data, trade_flow, year, description_col = "hs_description", value_col = "total_value_commod") {
+    
+    data <- data %>% 
+      filter(flow_code == trade_flow, period == year) %>% 
+      arrange(desc(total_value_commod)) %>% 
+      ungroup() %>% 
+      mutate(cmd_code = fct_reorder(cmd_code, total_value_commod),
+             total_value_commod = round(total_value_commod/1000, 2),
+             ranking = row_number()) %>% 
+      filter(ranking <= 10)
+    
+    
+    # Validate inputs
+    if (!description_col %in% names(data) || !value_col %in% names(data)) {
+      stop("Column names provided do not exist in the data.")
+    }
+    
+    if (trade_flow == "X") {trade_noun <- "exports"} else {trade_noun <- "imports"} 
+    
+    initial_text <- paste0("<p>The most recent ", trade_noun," are led by ")
+    end_text <- ".</p></div>"
+    
+    n <- nrow(data)
+    text_vec <- vector("character", n)
+    
+    for (i in 1:n) {
+      comma_or_dot <- if (i != n) "," else ""
+      text_vec[i] <- sprintf("<strong>%s</strong> ($%sB)%s", 
+                             data[[description_col]][i], 
+                             data[[value_col]][i], 
+                             comma_or_dot)
+    }
+    
+    final_html <- HTML(paste0(initial_text, paste0(text_vec, collapse = " "), end_text))
+    return(final_html)
+  }
     
     output$top_export_commod <- renderUI({
       
       output$top_10_export_bar_commod <- renderPlotly({trade_top_commod_bar_chart(data = top_commod_value(), 
                                                                                   trade_flow = "X",
                                                                                   year = trade_input$year)})
+      # text for export
+      output$html_text_export <- renderText({paste0(generate_html_text_total(text_total_list(), what = "export"),
+                                                    generate_commodities_html(top_commod_value(), trade_flow = "X", year = trade_input$year))})
+      
+      
       box(
         width = 12,
         status = "olive",
@@ -1576,7 +1773,9 @@ server <- function(input, output) {
         elevation = 4,
         maximizable = TRUE,
         title = HTML("<b>Top 10 Export Commodities</b>"),
-        plotlyOutput("top_10_export_bar_commod")
+        plotlyOutput("top_10_export_bar_commod"),
+        tags$hr(),
+        htmlOutput("html_text_export")
       )
       
     })
@@ -1586,6 +1785,11 @@ server <- function(input, output) {
       output$top_10_import_bar_commod <- renderPlotly({trade_top_commod_bar_chart(data = top_commod_value(), 
                                                                                   trade_flow = "M",
                                                                                   year = trade_input$year)})
+    
+      # text for import
+      output$html_text_import <- renderText({paste0(generate_html_text_total(text_total_list(), what = "import"),
+                                                    generate_commodities_html(top_commod_value(), trade_flow = "M", year = trade_input$year))})
+      
       box(
         width = 12,
         status = "orange",
@@ -1593,7 +1797,9 @@ server <- function(input, output) {
         elevation = 4,
         maximizable = TRUE,
         title = HTML("<b>Top 10 Import Commodities</b>"),
-        plotlyOutput("top_10_import_bar_commod")
+        plotlyOutput("top_10_import_bar_commod"),
+        tags$hr(),
+        htmlOutput("html_text_import")
       )
       
     })
@@ -1630,116 +1836,349 @@ server <- function(input, output) {
       
       return(trade_all)
     })
-  
-    html_trade_info_total <- function(data) {
+    
+    output$export_import_line_chart <- renderUI({
       
-      ref_year <- unique(data$ref_year)
-      m <- max(ref_year)
-      m_y <- m
-      m_5 <- m - 5
-      m_10 <- m - 10
+      ts_total_trade <-  trade_data_ten_years() %>%
+        left_join(clean_hs_commod, by = join_by(cmd_code == id)) %>% 
+        select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, cmd_code, text, primary_value) %>% 
+        rename("hs_description" = text) %>% 
+        left_join(all_countrycode, by = join_by(partner_iso == ISO3_CODE)) %>% 
+        group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc) %>% 
+        summarise(total_value = sum(primary_value)/1e9) %>% 
+        ungroup() %>%
+        arrange(flow_desc) %>% 
+        select(-flow_code) %>% 
+        pivot_wider(names_from = flow_desc, values_from = total_value) %>% 
+        mutate(`Two-Way Trade` = Export + Import,
+               `Trade Balance` = Export - Import) %>% 
+        pivot_longer(Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_value")
       
-      ref_5 <- as.character(ref_year[ref_year %in% seq(m_5, m, 1)])
-      ref_10 <- as.character(ref_year[ref_year %in% seq(m_10, m, 1)])
-      
-      data_for_total_growth <- data %>%
-        nest(data = flow_code:primary_value) %>% 
-        mutate(
-          total = lapply(data, FUN = function(x) x %>% 
-                           group_by(flow_code, flow_desc) %>% 
-                           summarise(total = sum(primary_value)/ 1000000000)))%>% 
-        select(-data) %>% 
-        unnest(total)
-      
-      total_growth_export_import <- function(x, min_y, max_y, code, what) {
-        years <- if (what == "five") ref_5 else ref_10
-        lag_n <- if (what == "five") 5L else 10L
+      output$line_chart <-  renderHighchart({
         
-        x %>%
-          filter(period %in% years, flow_code == code) %>%
-          arrange(reporter_iso, flow_code, period) %>%
-          group_by(reporter_iso, reporter_desc, flow_code, flow_desc) %>%
-          mutate(growth = (total - lag(total, n = lag_n)) / lag(total, n = lag_n) * 100) %>%
-          filter(period %in% as.character(c(min_y, max_y)))
+        # Ensure period is converted to a Date format for proper time handling
+        ts_total_trade$period <- as.Date(paste0(ts_total_trade$period, "-01","-01"))
+        
+        
+        # Define color palette (muted, official tones)
+        line_chart_palette <- c("#00529F", "#CD590A", "#007A33", "#6BAA75", "#8C4799", "#B58DB6")
+        
+        # Build chart
+        hchart(ts_total_trade %>% filter(flow_desc != "Trade Balance"), type = "line", hcaes(x = period, y = total_value, group = flow_desc)) %>%
+          hc_colors(line_chart_palette) %>%
+          hc_title(
+            text = "Total Trade Over Time",
+            style = list(fontSize = "18px", fontWeight = "bold", fontFamily = "Helvetica Neue", color = "#333")
+          ) %>%
+          hc_xAxis(
+            type = "datetime",
+            title = list(text = "Period", style = list(fontSize = "14px", fontWeight = "normal")),
+            lineColor = "#cccccc",
+            tickColor = "#cccccc",
+            labels = list(style = list(fontSize = "12px", color = "#333"))
+          ) %>%
+          hc_yAxis(
+            title = list(text = "Total Trade Value (Billion USD)", style = list(fontSize = "14px", fontWeight = "normal")),
+            gridLineColor = "#EAEAEA",
+            labels = list(format = "{value}", style = list(fontSize = "12px", color = "#333"))
+          ) %>%
+          hc_plotOptions(
+            series = list(
+              marker = list(enabled = TRUE, radius = 5),
+              lineWidth = 3,
+              animation = list(duration = 1000)
+            )
+          ) %>%
+          hc_tooltip(
+            shared = TRUE,
+            crosshairs = TRUE,
+            valueDecimals = 2,
+            valueSuffix = "B",
+            valuePrefix = "$",
+            headerFormat = '<b>{point.key}</b><br>',
+            style = list(fontSize = "12px")
+          ) %>%
+          hc_legend(
+            layout = "horizontal",
+            align = "center",
+            verticalAlign = "bottom",
+            itemStyle = list(fontSize = "12px", fontWeight = "normal", color = "#333")
+          ) %>%
+          hc_chart(
+            backgroundColor = "#FFFFFF",
+            style = list(fontFamily = "Helvetica Neue")
+          ) %>%
+          hc_credits(
+            enabled = TRUE,
+            text = "Source: UN Comtrade",
+            style = list(fontSize = "11px", color = "#666"))
+        
+      })
+      
+      
+      output$bar_chart <-  renderHighchart({
+        
+        # Ensure period is converted to a Date format for proper time handling
+        ts_total_trade$period <- as.Date(paste0(ts_total_trade$period, "-01","-01"))
+        
+        
+        highchart() %>% 
+          hc_add_series(data = ts_total_trade %>% filter(flow_desc == "Trade Balance"),
+                        type = "l",
+                        mapping = hcaes(x = period,))
+        
+        
+        # Filter once
+        trade_balance_data <- ts_total_trade %>% 
+          filter(flow_desc == "Trade Balance")
+        
+        highchart() %>% 
+          hc_chart(type = "column") %>%  # Set base type (bar is vertical column in Highcharts)
+          
+          # Add bar series
+          hc_add_series(
+            data = trade_balance_data,
+            type = "column",
+            name = "Trade Balance (Bar)",
+            color = "#1f77b4",
+            mapping = hcaes(x = period, y = total_value)
+          ) %>% 
+          
+          # Add line series
+          hc_add_series(
+            data = trade_balance_data,
+            type = "line",
+            name = "Trade Balance (Line)",
+            color = "#ff7f0e",
+            mapping = hcaes(x = period, y = total_value)
+          ) %>%
+          
+          # Shared tooltip
+          hc_tooltip(shared = TRUE,
+                     crosshairs = TRUE,
+                     valueDecimals = 0, 
+                     valuePrefix = "$",
+                     valueSuffix = "B",
+                     style = list(fontSize = "12px")) %>%
+          
+          hc_chart(
+            backgroundColor = "#FFFFFF",
+            style = list(fontFamily = "Helvetica Neue")
+          ) %>% 
+          
+          # X-axis formatting
+          hc_xAxis(
+            type = "datetime",
+            title = list(text = "Period"),
+            labels = list(rotation = -45)
+          ) %>%
+          
+          # Y-axis
+          hc_yAxis(
+            title = list(text = "Total Value ($ Billion)"),
+            labels = list(format = "${value:,.0f}B")
+          ) %>%
+          
+          hc_credits(
+            enabled = TRUE,
+            text = "Source: UN Comtrade",
+            style = list(fontSize = "11px", color = "#666")
+          ) %>% 
+          
+          # Chart title
+          hc_title(text = "Trade Balance Over Time",
+                   style = list(fontSize = "18px", fontWeight = "bold", fontFamily = "Helvetica Neue", color = "#333"))
+        
+        
+      })
+      
+      tabBox(title = HTML("<b>Aggregate Time Series</b>"),
+             type = "tabs",
+             status = "info",
+             width = 12,
+             elevation = 4,
+             id = 'tab_for_trade_series',
+             maximizable = TRUE,
+             collapsible = TRUE,
+             tabPanel(title = HTML("<b>Total Annual Trade</b>"),
+                      highchartOutput("line_chart", height = "400px")
+                      ),
+             tabPanel(title = HTML("<b>Annual Trade Balance</b>"),
+                      highchartOutput("bar_chart", height = "400px"))
+             )
+    })
+    
+    ## Sankey section
+    sankey_trade_chart <- function(data, country, what, year, hs_vector, commod, countrycode) {
+      
+      if(length(hs_vector) > 6) {
+        stop("aborting, the maximum length is 6 or less")
+      } else if (length(hs_vector) == 0) {
+        stop("hs_vector argument is missing, with no default")
       }
       
-      list(
-        tot_5_export  = total_growth_export_import(data_for_total_growth, m_5, m_y, "X", "five"),
-        tot_5_import  = total_growth_export_import(data_for_total_growth, m_5, m_y, "M", "five"),
-        tot_10_export = total_growth_export_import(data_for_total_growth, m_10, m_y, "X", "ten"),
-        tot_10_import = total_growth_export_import(data_for_total_growth, m_10, m_y, "M", "ten")
+      data_sankey_base <- data %>% 
+        left_join(commod, by = join_by(cmd_code == id)) %>% 
+        select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, cmd_code, text, primary_value) %>% 
+        rename("hs_description" = text) %>% 
+        left_join(countrycode, by = join_by(partner_iso == ISO3_CODE))
+      
+      sankey_chart_builder <- function(data, country, type, year, hs_commod) {
+        
+        if (type == "Export") {
+          
+          select_flow_code <- "X"
+          trade_noun <- "Export"
+          arrow <- "→"
+          
+        } else if (type == "Import"){
+          
+          select_flow_code <- "M"
+          trade_noun <- "Import"
+          arrow <- "←"
+          
+        }
+        
+        # Build the commodity→partner edges
+        data_one <- data %>% 
+          group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, hs_description, partner_iso) %>% 
+          summarise(total_value_commod = sum(primary_value)) %>% 
+          filter(flow_code == select_flow_code & period == year) %>% 
+          arrange(cmd_code) %>% 
+          ungroup() %>% 
+          select(hs_description, partner_iso, total_value_commod) %>% 
+          group_by(hs_description) %>% 
+          mutate(total = sum(total_value_commod),
+                 weight = round(total_value_commod/1e6, 2),
+                 q25_weight = quantile(weight, probs = c(0.25)),
+                 q50_weight = quantile(weight, probs = c(0.50)),
+                 q75_weight = quantile(weight, probs = c(0.75)),
+                 q95_weight = quantile(weight, probs = c(0.95)),
+                 partner_iso = if_else(weight < q95_weight, "ROW", partner_iso),
+                 id = paste0(hs_description, partner_iso),
+          ) %>% 
+          select(-c(total_value_commod, total)) %>% 
+          relocate(hs_description, partner_iso, weight, id) %>% 
+          rename("from" = hs_description,
+                 "to" = partner_iso) %>% 
+          filter(from %in% hs_commod)
+        
+        # Build the reporter→commodity edges
+        data_two <- data %>% 
+          group_by(period, reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, hs_description) %>% 
+          summarise(total_value = sum(primary_value)) %>% 
+          filter(flow_code == select_flow_code  & period == year) %>% 
+          group_by(hs_description) %>% 
+          mutate(weight = round(total_value/1e6, 2),
+                 id = paste0(reporter_desc, hs_description),
+          ) %>% 
+          select(reporter_desc, hs_description, weight, id) %>% 
+          rename("from" = reporter_desc,
+                 "to" =  hs_description) %>% 
+          filter(to %in% hs_commod)
+        
+        data_final_sankey <- rbind(data_one, data_two)
+        
+        sankey_chart <- hchart(
+          data_final_sankey, 
+          type = "sankey", 
+          name = paste0(trade_noun, " Profile")
+        ) %>%
+          
+          hc_chart(
+            backgroundColor = "#FFFFFF",
+            style = list(fontFamily = "Helvetica Neue")
+          ) %>% 
+          
+          hc_title(
+            text = paste0(year," ",country," ",trade_noun," Profile"),
+            style = list(fontSize = "18px", fontWeight = "bold", fontFamily = "Helvetica Neue", color = "#333")
+          ) %>% 
+          
+          hc_credits(
+            enabled = TRUE,
+            text = "Source: UN Comtrade",
+            style = list(fontSize = "11px", color = "#666")
+          ) %>% 
+          
+          hc_tooltip(
+            pointFormat = sprintf("<b>{point.fromNode.name}</b> %s <b>{point.toNode.name}</b>: ${point.weight} M USD", arrow)
+          )
+        
+        return(sankey_chart)
+      }
+      
+      sankey_chart_final <- sankey_chart_builder(data_sankey_base, country, what, year, hs_vector)
+      
+      return(sankey_chart_final)
+    }
+    
+    output$sankey_chart <- renderUI({
+      
+      my_css <- "
+                 .bs-select-all {
+                   display: none;
+                 }
+                 .bs-deselect-all {
+                   width: 100%;
+                 }
+              "
+      
+      box(
+        width = 12,
+        status = "olive",
+        title = HTML("<b>International Trade Flow by Commodities</b>"),
+        elevation = 4,
+        fluidRow(
+          column(
+            width = 8,
+            tags$head(tags$style(HTML(my_css))),
+            pickerInput(
+              inputId = "sankey_hs_input",
+              label = "Select HS Commodities",
+              choices = sort(clean_hs_commod$text),
+              selected = sort(clean_hs_commod$text)[1:4],
+              multiple = TRUE,
+              options = pickerOptions(maxOptions = 6,
+                                      maxOptionsText = "Sorry, picking further than this would affect the readability of the chart",
+                                      actionsBox = TRUE,
+                                      liveSearch = TRUE)
+            )
+          ),
+          column(
+            width = 4,
+            radioGroupButtons(
+              inputId = "sankey_what_input",
+              label = "Select Trade Flow",
+              selected = "Export",
+              choices = c("Export", "Import"),
+              justified = TRUE,
+              checkIcon = list(
+                yes = icon("ok", lib = "glyphicon")
+              )
+            )
+          )
+        ),
+        highchartOutput(outputId = "sankey_trade_output", height = "800px"),
+        maximizable = TRUE
       )
-    }
+      
+    })
     
-    text_total_list <- reactive({html_trade_info_total(trade_data_ten_years())})
-  
-    generate_html_text_total <- function(data, what) {
+    output$sankey_trade_output <- renderHighchart({
+      req(input$sankey_hs_input)           # ← wait until it’s non‑null
       
-      list_data <- data
-      type_word <- ifelse(what == "export", "exported", "imported")
-      type_noun <- ifelse(what == "export", "exports", "imports")
-      
-      if (what == "export") {
-        data_5 <- list_data[["tot_5_export"]]
-        data_10 <- list_data[["tot_10_export"]]
-      } else if (what == "import") {
-        data_5 <- list_data[["tot_5_import"]]
-        data_10 <- list_data[["tot_10_import"]]
-      } else {
-        stop("Invalid value for 'what'. Choose 'export' or 'import'.")
-      }
-      
-      # Extract values
-      tot_5_total_min <- data_5[1, "total"]
-      tot_5_total_max <- data_5[2, "total"]
-      tot_5_total_growth <- data_5[2, "growth"]
-      tot_5_total_growth_text <- if_else(tot_5_total_growth > 0, "increased", "decreased")
-      tot_5_year_min <- data_5[1, "period"]
-      tot_5_year_max <- data_5[2, "period"]
-      tot_5_country <- data_5[2, "reporter_desc"]
-      
-      tot_10_total_min <- data_10[1, "total"]
-      tot_10_total_max <- data_10[2, "total"]
-      tot_10_total_growth <- data_10[2, "growth"]
-      tot_10_total_growth_text <- if_else(tot_10_total_growth > 0, "increased", "decreased")
-      tot_10_year_min <- data_10[1, "period"]
-      tot_10_year_max <- data_10[2, "period"]
-      tot_10_country <- data_10[2, "reporter_desc"]
-      
-      # HTML output
-      html_text <- HTML(glue(
-        "<div style='font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; padding-left: 20px; padding-top: 20px; padding-right: 20px;'>
-       <p>
-         <strong>In {tot_5_year_max}</strong>, <strong>{tot_5_country}</strong> {type_word} a total of 
-         <strong>${round(tot_5_total_max, 2)} Billion</strong>.
-       </p>
-       <p>
-         Over the past five years, {tot_5_country}'s {type_noun} 
-         <strong>{tot_5_total_growth_text}</strong> by 
-         <strong>{round(tot_5_total_growth, 0)}%</strong>, 
-         from <strong>${round(tot_5_total_min, 2)} Billion</strong> in 
-         <strong>{tot_5_year_min}</strong> to 
-         <strong>${round(tot_5_total_max, 2)} Billion</strong> in 
-         <strong>{tot_5_year_max}</strong>.
-       </p>
-       <p>
-         Over the past ten years, {type_noun} have 
-         <strong>{tot_10_total_growth_text}</strong> by 
-         <strong>{round(tot_10_total_growth, 0)}%</strong>, from 
-         <strong>${round(tot_10_total_min, 2)} Billion</strong> in 
-         <strong>{tot_10_year_min}</strong> to 
-         <strong>${round(tot_10_total_max, 2)} Billion</strong> in 
-         <strong>{tot_10_year_max}</strong>.
-       </p>
-     </div>"
-      ))
-      
-      return(html_text)
-    }
-    
-    output$html_text_export <- renderText({generate_html_text_total(text_total_list(), what = "export")})
-    output$html_text_import <- renderText({generate_html_text_total(text_total_list(), what = "import")})
-  
+      sankey_trade_chart(
+        data        = trade_data_ten_years(),
+        country     = trade_input$country,
+        what        = input$sankey_what_input,
+        year        = trade_input$year,
+        hs_vector   = input$sankey_hs_input,
+        commod      = clean_hs_commod,
+        countrycode = all_countrycode
+      )
+    })
+
 }
 
 shinyApp(ui, server)

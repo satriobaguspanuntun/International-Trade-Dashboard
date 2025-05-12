@@ -10,8 +10,10 @@ conn <- dbConnect(SQLite(), "~/international-Trade-Dashboard/master_db.db")
 sql_export_query <- function(conn, country, start, end, trade_flow, type) {
   # incorporate error handling exception (IMPORTANT)
   
-  start_numeric <- as.numeric(start)
-  end_numeric <- as.numeric(end)
+  # Basic input validation
+    start_numeric <- as.numeric(start)
+    end_numeric <- as.numeric(end)
+    
   
   date_sql_trade_range <- paste0(as.character(seq.int(start_numeric, end_numeric, by = 1)), collapse = ",")
   trade_flow <- paste0(trade_flow, collapse = ",")
@@ -25,15 +27,18 @@ sql_export_query <- function(conn, country, start, end, trade_flow, type) {
                        trade_flow,
                        country)
   
-  data_trade <- dbGetQuery(conn, sql_query)
+  data_trade <- dbGetQuery(conn, sql_query) %>% mutate(fobvalue = as.numeric(fobvalue),
+                                                       primary_value = as.numeric(primary_value),
+                                                       cifvalue = as.numeric(cifvalue))
   return(data_trade)
 }
 
 # 3. pull macro data --------------------
 sql_macro_query <-  function(conn, start, end) {
   
-  start_numeric <- as.numeric(start)
-  end_numeric <- as.numeric(end)
+  # Basic input validation
+    start_numeric <- as.numeric(start)
+    end_numeric <- as.numeric(end)
   
   date_sql_macro_range <- paste0(as.character(seq.int(start_numeric, end_numeric, by = 1)), collapse = ",")
   
@@ -57,6 +62,7 @@ sql_macro_query <-  function(conn, start, end) {
                         date_sql_macro_range)
   
   data_sql_macro <- dbGetQuery(conn, sql_query)
+  
   return(data_sql_macro)
 }
 
@@ -94,18 +100,27 @@ sql_year_range <- function(conn) {
 sql_country_code <- function(conn) {
   
   # goods available country
-  sql_goods_country_query <- "SELECT DISTINCT goods.reporter_iso FROM goods"
+  sql_goods_country_query <- "SELECT DISTINCT reporter_iso FROM goods"
   
   # service available country
-  sql_service_country_query <- "SELECT DISCTINCT services.reporter_iso FROM services"
+  sql_service_country_query <- "SELECT DISTINCT reporter_iso FROM services"
   
   # fetch data
   sql_goods_country <- dbGetQuery(conn, sql_goods_country_query)
   sql_service_country <- dbGetQuery(conn, sql_service_country_query)
   
+  anti_join_country <- anti_join(sql_goods_country, sql_service_country) %>% pull()
   
+  if (length(anti_join_country) == 0) {
+    
+    goods_country <- sql_goods_country$reporter_iso
+    services_country <- sql_service_country$reporter_iso
+    
+  } else {
+    
+    stop("error: country codes mismatch between goods and services table, please redownload all of the data")
+    
+  }
   
+  return(list(goods_avail_country = goods_country, serv_avail_country = services_country ))
 }
-
-
-
