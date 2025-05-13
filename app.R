@@ -16,7 +16,7 @@ library(waiter)
 
 #source("~/international-Trade-Dashboard/app/ui.R")
 #source("~/international-Trade-Dashboard/app/server.R")
-source("~/international-Trade-Dashboard/sql_queries.R")
+source("~/international-Trade-Dashboard/R/sql_queries.R")
 options(scipen = 999)
 
 ## OBJECTIVE -----

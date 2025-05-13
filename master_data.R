@@ -12,9 +12,9 @@ library(WDI)
 library(jsonlite)
 library(RSQLite)
 
-source("~/international-Trade-Dashboard/data_pull_scripts/pull_trade_data.R")
-source("~/international-Trade-Dashboard/data_pull_scripts/pull_macro_data.R")
-source("~/international-Trade-Dashboard/data_pull_scripts/pull_all_data.R")
+source("~/international-Trade-Dashboard/R/pull_trade_data.R")
+source("~/international-Trade-Dashboard/R/pull_macro_data.R")
+source("~/international-Trade-Dashboard/R/pull_all_data.R")
 options(scipen = 999)
 
 #----------------------------- SET PARAMETERS --------------------------------#
