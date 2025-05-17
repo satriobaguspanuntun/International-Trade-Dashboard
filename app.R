@@ -2,7 +2,6 @@ library(shiny)
 library(shinyWidgets)
 library(tidyverse)
 library(bs4Dash)
-library(lubridate)
 library(RSQLite)
 library(highcharter)
 library(plotly)
@@ -161,8 +160,8 @@ ui <- dashboardPage(
           icon = icon("chevron-right")
         ),
         menuSubItem(
-          text = "Drilldown Analysis",
-          tabName = "drilldown_trade",
+          text = "Trade-Forecasting",
+          tabName = "forecasting_trade",
           icon = icon("chevron-right")
         )
       ),
@@ -291,7 +290,8 @@ ui <- dashboardPage(
               actionBttn(
                 inputId = "run_macro_main_stats",
                 label = "Run Report",
-                style = "jelly"
+                style = "jelly",
+                color = "primary"
               )
             )
         ),
@@ -421,7 +421,10 @@ ui <- dashboardPage(
       ),
       tabItem(
         tabName = "summary_trade_stats",
-        tags$div(h2("International Trade Statistics")),
+        useBusyIndicators(),
+        busyIndicatorOptions(spinner_type = "ring2",
+                             spinner_size = "80px"),
+        h2("International Trade Statistics"),
         tags$hr(),
         fluidRow(
           column(
@@ -519,7 +522,7 @@ ui <- dashboardPage(
       )
      ),
      tabItem(
-       tabName = "drilldown_trade",
+       tabName = "forecasting_trade",
        tags$h1("In Progress...")
      ),
      tabItem(
@@ -536,7 +539,9 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
   
-  #### MACRO TABS SERVER ####
+  #-----------------------------------------------------------------------------------#
+  #--------------------------------# MACRO TAB SERVER #-------------------------------#
+  #-----------------------------------------------------------------------------------#
   
   ### Compile necessary dataset and make it reactivevals - so that it'll keep on updating
   ### based on user input.
@@ -966,8 +971,16 @@ server <- function(input, output) {
     
   })
   
-  #### TRADE TAB SERVER ####
-  ### Summary Statistic page
+  
+  
+  
+  #-----------------------------------------------------------------------------------#
+  #--------------------------------# TRADE TAB SERVER #-------------------------------#
+  #-----------------------------------------------------------------------------------#
+  
+  ###----------------------------------------------------------###
+  ### -----------------Summary Statistic page -----------------###
+  ###----------------------------------------------------------###
   ## user input.
   trade_input <- reactiveValues(country = "Argentina",
                                 trade_flow_select = "X",
@@ -980,7 +993,12 @@ server <- function(input, output) {
     trade_input$year <- as.numeric(substr(input$trade_stats_year, 1, 4))
   })
   
-  # ### call trade data
+  #### call trade data ##### 
+  
+  # NOTE: I think storing all of the data needed up front in a list 
+  # Would be the best option to simplify and refactor repeated codes.
+  
+  
   trade_data <- reactive({
 
     trade_data_test <- sql_export_query(conn,
@@ -2177,8 +2195,53 @@ server <- function(input, output) {
         commod      = clean_hs_commod,
         countrycode = all_countrycode
       )
-    })
 
+    })
+    
+    ###----------------------------------------------------------###
+    ### ----------------- Bilateral Trade page ------------------###
+    ###----------------------------------------------------------###
+    # function to summarised based on the selection of frequency (monthly, quarterly, annual)
+    monthly_trade_summariser_func <- function(data, freq) {
+      
+      trade_data <- data %>% 
+        mutate(month = substr(period, 5, 6),
+               quarter = paste0("Q", quarter(paste0(as.character(ref_year),"-", month, "-", "01"))),
+               period = paste0(as.character(ref_year), "-", month),
+               ref_quarter = paste0(as.character(ref_year), "-", quarter))
+      
+      trade_output_summarise <- switch(freq,
+                                       # monthly
+                                       "monthly" = {x <- trade_data %>% 
+                                         select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                cmd_code, cmd_desc, primary_value) %>% 
+                                         rename("total_trade_value" = primary_value)},
+                                       
+                                       # quarterly
+                                       "quarterly" = {
+                                         x <- trade_data %>% 
+                                           group_by(quarter, ref_quarter, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                    cmd_code, cmd_desc) %>% 
+                                           summarise(total_trade_value = sum(primary_value))
+                                       },
+                                       
+                                       # annual
+                                       "annual" = {
+                                         x <- trade_data %>% 
+                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                    cmd_code, cmd_desc) %>% 
+                                           summarise(total_trade_value = sum(primary_value))
+                                       })
+      
+      return(trade_output_summarise)
+    }
+    
+    
+    ###----------------------------------------------------------###
+    ### ---------------- TRADE-FORECASTING page ------------_----###
+    ###----------------------------------------------------------###
+    
+    
 }
 
 shinyApp(ui, server)

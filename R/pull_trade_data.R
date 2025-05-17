@@ -93,10 +93,10 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
         cli::cli_bullets(paste0("Pulling data for the year: ", j))
         data <- ct_get_data(
           type = "goods",
-          frequency = "A",
+          frequency = freq,
           commodity_classification = "HS",
           commodity_code = hs2,
-          flow_direction = c("import", "re-import", "export", "re-export"),
+          flow_direction = direction,
           reporter = i,
           partner = "all_countries",
           start_date = j,
@@ -286,6 +286,183 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
   output_list <- list(goods = goods_output, services = service_output)
   return(output_list)
 }
+
+# SERVICES REPLACEMENT harmonising unctad trade data with comtrade
+harmonise_load_unctad <- function(countrycode) {
+  
+  data_path <- "~/international-Trade-Dashboard/data/"
+  file_pattern <- "services_[0-9]{4}_[0-9]{4}"
+  files_in_data_folder <- list.files(data_path)
+  
+  if (any(stringr::str_detect(files_in_data_folder, file_pattern))) {
+    
+    file_csv <- grep(file_pattern, x = files_in_data_folder, value = TRUE)
+    services_data <- read.csv(paste0(data_path, file_csv)) %>% 
+      inner_join(countrycode, by = join_by(`Economy.Label` == "iso.name.en")) %>% 
+      select(Year, `Economy.Label`, ISO3_CODE, `Partner.Label`, Flow, `Flow.Label`, Category, `Category.Label`,
+             `US..at.current.prices.in.millions`,`Percentage.of.total.trade.in.services`) %>% 
+      rename("period" = Year,
+             "reporter_iso" = ISO3_CODE,
+             "reporter_desc" = `Economy.Label`,
+             "flow_code" = Flow,
+             "flow_desc" = `Flow.Label`,
+             "partner_desc" = `Partner.Label`,
+             "cmd_code" = Category,
+             "cmd_desc" = `Category.Label`,
+             "primary_value" = `US..at.current.prices.in.millions`,
+             "per_total_service" = `Percentage.of.total.trade.in.services`) %>% 
+      mutate(flow_code = if_else(flow_code == 1, "M", "X")) %>% 
+      left_join(countrycode, by = join_by("partner_desc" == "iso.name.en"))
+    
+    # replace the old huge file into the filtered one
+    file.remove(paste0(data_path, file_csv))
+    
+    # save data
+    saveRDS(services_data, paste0(data_path, "services_data.rds"))
+    
+  } else if (any(stringr::str_detect(files_in_data_folder, "services_data.rds"))){
+    
+    services_data <- read.csv(paste0(data_path, file_csv))
+    
+  } else {
+    
+    stop("Services data csv file does not exist in the data folder.")
+    
+  }
+  
+  return(services_data)
+}
+
+
+## MONTHLY TRADE PULL ##
+# create a function to pull one country export data
+pull_monthly_trade <- function(reporter, partner, direction, commod_code, start, end) {
+  # sense check
+  if (c("all_countries") %in% reporter & c("all_countries") %in% partner) {
+    warning("this will reduce the amount of data you can pull, the hit call limit is 100K rows")
+  }
+  
+  # Call API
+  ## OMT Goods data
+  ## create a for loop for omt data to be able to pull more data 
+  
+  range <- seq.Date(from = as.Date(paste(start, "01", "01", sep = "-")),
+                    to = as.Date(paste(end, "01", "01", sep = "-")),
+                    by = "1 year")
+  
+  range <- substr(as.character(range), 1, 4)
+  
+  # loop time
+  output_goods_list <- list()
+  
+  for (i in reporter) {
+    country_data <- list()  # To store data for all dates for this country
+    cli::cli_h1(paste0("Downloading monthly data for ",i))
+    
+    for (j in range) {
+      goods_data <- tryCatch({
+        cli::cli_bullets(paste0("Pulling monthly data for the year: ", j))
+        data <- ct_get_data(
+          type = "goods",
+          frequency = "M",
+          commodity_classification = "HS",
+          commodity_code = hs2,
+          flow_direction = direction,
+          reporter = i,
+          partner = partner,
+          start_date = paste0(j,"-","01"),
+          end_date = paste0(j,"-", "12"))
+        
+        if (identical(nrow(data), ncol(data))) {
+          data <- data.frame(freq_code = NA, 
+                             ref_period_id = NA,
+                             ref_year = NA, 
+                             ref_month = NA,
+                             period = j,
+                             reporter_iso = i, 
+                             reporter_desc = NA, 
+                             flow_code = NA, 
+                             flow_desc = NA,
+                             partner_iso = NA, 
+                             partner2desc = NA, 
+                             classification_code = NA,
+                             cmd_code = NA, 
+                             cmd_desc = NA, 
+                             aggr_level = NA,
+                             customs_code = NA,
+                             customs_desc = NA,
+                             cifvalue = NA,
+                             fobvalue = NA,
+                             primary_value = NA)
+        } else {
+          data <- data %>% 
+            select(freq_code, 
+                   ref_period_id,
+                   ref_year, 
+                   ref_month,
+                   period,
+                   reporter_iso, 
+                   reporter_desc, 
+                   flow_code, 
+                   flow_desc,
+                   partner_iso, 
+                   partner2desc, 
+                   classification_code,
+                   cmd_code, 
+                   cmd_desc, 
+                   aggr_level,
+                   customs_code,
+                   customs_desc,
+                   cifvalue,
+                   fobvalue,
+                   primary_value) %>% 
+            mutate(partner_iso = if_else(partner_iso == "S19", "TWN", partner_iso))
+        }
+      }, error = function(e) {
+        message("Error for country: ", i, ", date: ", j, ": ", e)
+        data <- data.frame(freq_code = NA, 
+                           ref_period_id = NA,
+                           ref_year = NA, 
+                           ref_month = NA,
+                           period = j,
+                           reporter_iso = i, 
+                           reporter_desc = NA, 
+                           flow_code = NA, 
+                           flow_desc = NA,
+                           partner_iso = NA, 
+                           partner2desc = NA, 
+                           classification_code = NA,
+                           cmd_code = NA, 
+                           cmd_desc = NA, 
+                           aggr_level = NA,
+                           customs_code = NA,
+                           customs_desc = NA,
+                           cifvalue = NA,
+                           fobvalue = NA,
+                           primary_value = NA)
+        return(data)
+      })
+      
+      country_data[[j]] <- goods_data
+      
+      
+      Sys.sleep(0.5)  # Avoid API rate limit issues
+    }
+    
+    # Combine all data for the country
+    if (length(country_data) > 0) {
+      output_goods_list[[i]] <- do.call(rbind, country_data)
+    }
+    
+  }
+  
+  goods_output <- as.data.frame(do.call(rbind, output_goods_list))
+  
+  rownames(goods_output) <- 1:nrow(goods_output)
+  
+  return(goods_output)
+}
+
 
 pull_hs_concord <- function () {
   cli::cli_h1("Downloading HS level concordance table")

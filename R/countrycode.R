@@ -75,14 +75,26 @@ selected_countrycode <- gisco_countrycode |>
   select(-eu) |> 
   mutate(eu = if_else(ISO3_CODE %in% eu_iso3_code_vec, 1, 0),
          g20 = if_else(ISO3_CODE %in% g20_iso3_code_vec, 1, 0),
-         oecd = if_else(ISO3_CODE %in% oecd_country_vec, 1, 0)) |> 
+         oecd = if_else(ISO3_CODE %in% oecd_country_vec, 1, 0),
+         iso.name.en = case_when(iso.name.en == "Korea (the Republic of)" ~ "Republic of Korea",
+                                 iso.name.en == "Netherlands (the)" ~ "Netherlands (Kingdom of the)",
+                                 iso.name.en == "Russian Federation (the)" ~ "Russian Federation",
+                                 iso.name.en == "Turkey" ~ "Turkiye",
+                                 iso.name.en == "United States of America (the)" ~ "United States",
+                                 .default = iso.name.en)) |> 
   filter(eu == 1 | g20 == 1 | oecd == 1)
 
 # save countrycode dataframe 
 saveRDS(selected_countrycode, "~/international-Trade-Dashboard/data/countrycode.rds")
 
 # all countrycode
-all_countrycode <- gisco_countrycode
+all_countrycode <- gisco_countrycode %>% 
+  mutate(iso.name.en = case_when(iso.name.en == "Korea (the Republic of)" ~ "Republic of Korea",
+                                iso.name.en == "Netherlands (the)" ~ "Netherlands (Kingdom of the)",
+                                iso.name.en == "Russian Federation (the)" ~ "Russian Federation",
+                                iso.name.en == "Turkey" ~ "Turkiye",
+                                iso.name.en == "United States of America (the)" ~ "United States",
+                                .default = iso.name.en))
 saveRDS(all_countrycode, "~/international-Trade-Dashboard/data/all_countrycode.rds")
 
 

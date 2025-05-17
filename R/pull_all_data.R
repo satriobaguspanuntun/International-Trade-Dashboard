@@ -46,10 +46,18 @@ pull_all_countries_data <- function(country_batch, hs2, start_date, end_date) {
   trade_data <- pull_trade(trade_iso3,
                            partner = "all_countries",
                            direction = c("import", "re-import", "export", "re-export"),
-                           start = start_date,
-                           end = end_date,
+                           start = trade_start,
+                           end = trade_end,
                            freq = "A",
                            commod_code = hs2)
+  
+  # monthly trade data 
+  monthly_trade_data <- pull_monthly_trade(trade_iso3,
+                                           partner = "World",
+                                           direction = c("import", "re-import", "export", "re-export"),
+                                           start = trade_start,
+                                           end = trade_end,
+                                           commod_code = hs2)
   
   # pull macro data
   macro_data <- wdi_dat_function(countries = wdi_iso2,
@@ -57,7 +65,7 @@ pull_all_countries_data <- function(country_batch, hs2, start_date, end_date) {
                                  end = wdi_end)
 
   # try bind them in a list
-  return(list(trade = trade_data, macro = macro_data))
+  return(list(trade = trade_data, monthly_trade = monthly_trade_data, macro = macro_data))
 }
 
 # function to loop over country batches
@@ -66,6 +74,9 @@ loop_across_countries <- function(batches, start, end, hs) {
   # dataframe to store
   # goods trade data
   final_trade_data <- data.frame()
+  
+  # monthly goods trade data
+  final_monthly_trade_data <- data.frame()
   
   # service trade data
   final_service_data <- data.frame()
@@ -106,8 +117,20 @@ loop_across_countries <- function(batches, start, end, hs) {
       
     }
     
+    # store monthly goods data
+    monthly_trade_data <- data[[2]]
+    if (nrow(final_monthly_trade_data) == 0 & ncol(final_monthly_trade_data) == 0) {
+      
+      final_monthly_trade_data <- monthly_trade_data
+      
+    } else {
+      
+      final_monthly_trade_data <- rbind(final_monthly_trade_data, monthly_trade_data)
+      
+    }
+    
     # store macro data
-    macro_data <- data[[2]]
+    macro_data <- data[[3]]
     if (nrow(final_macro_data) == 0 & ncol(final_macro_data) == 0) {
       
       final_macro_data <- macro_data
@@ -120,7 +143,7 @@ loop_across_countries <- function(batches, start, end, hs) {
     
   }
   
-  return(list(goods = final_trade_data, services = final_service_data, macro = final_macro_data))
+  return(list(goods = final_trade_data, monthly_goods = final_monthly_trade_data, services = final_service_data, macro = final_macro_data))
 }
 
 # create sqlite database and update or save data on the first instance
@@ -134,7 +157,7 @@ sqlite_push <- function(data_list){
     
     for (i in dataset_names) {
       
-      if (i %in% c("goods", "services")) {
+      if (i %in% c("goods", "monthly_goods", "services")) {
         
         data <- data_list[[paste0(i)]]
         
@@ -352,15 +375,62 @@ sqlite_push <- function(data_list){
               
     )")
     
+    # Monthly goods
+    dbExecute(conn, "CREATE TABLE monthly_goods (
+    
+    freq_code char(1),
+    
+    ref_period_id INT,
+    
+    ref_year INT,
+    
+    ref_month INT,
+    
+    period TEXT,
+    
+    reporter_iso TEXT,
+    
+    reporter_desc TEXT,
+    
+    flow_code TEXT,
+    
+    flow_desc TEXT,
+    
+    partner_iso TEXT,
+    
+    partner2desc TEXT,
+    
+    classification_code char(2),
+    
+    cmd_code varchar(10),
+    
+    cmd_desc varchar(100),
+    
+    aggr_level int,
+    
+    customs_code varchar(15),
+    
+    customs_desc varchar(100),
+    
+    cifvalue bigint,
+    
+    fobvalue bigint,
+    
+    primary_value bigint
+)")
+    
     # write table into the database
     # goods trade
     dbWriteTable(conn, name = "goods", data_list[[1]], append = TRUE)
     
+    # monthly goods trade
+    dbWriteTable(conn, name = "monthly_goods", data_list[[2]], append = TRUE)
+    
     # service trade
-    dbWriteTable(conn, name = "services", data_list[[2]], append = TRUE)
+    dbWriteTable(conn, name = "services", data_list[[3]], append = TRUE)
     
     # macro trade
-    dbWriteTable(conn, name = "macro", data_list[[3]], append = TRUE)
+    dbWriteTable(conn, name = "macro", data_list[[4]], append = TRUE)
     
   }
 }
