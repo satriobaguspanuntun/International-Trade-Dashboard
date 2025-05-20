@@ -190,105 +190,102 @@ pull_trade <- function(reporter, partner, direction, commod_code, freq, start, e
   rownames(goods_output) <- 1:nrow(goods_output)
   
   ## services data
-  service_output_list <- list()
-  
-  for (i in reporter) {
-    
-    cli::cli_h1("Pulling Services Data for Reporter: {i}")
-    
-    service_data <- tryCatch({
-      data <- ct_get_data(type = "services",
-                          frequency = "A",
-                          commodity_classification = "EB",
-                          commodity_code = "everything",
-                          flow_direction = c("import", "re-import", "export", "re-export"),
-                          reporter = i,
-                          partner = "all_countries",
-                          start_date = start,
-                          end_date = end) 
-      
-      if (identical(nrow(data), ncol(data))) {
-        data <- data.frame(freq_code = NA, 
-                           ref_period_id = NA,
-                           ref_year = NA, 
-                           ref_month = NA,
-                           period = NA,
-                           reporter_iso = i, 
-                           reporter_desc = NA, 
-                           flow_code = NA, 
-                           flow_desc = NA,
-                           partner_iso = NA, 
-                           partner2desc = NA, 
-                           classification_code = NA,
-                           cmd_code = NA, 
-                           cmd_desc = NA, 
-                           aggr_level = NA,
-                           customs_code = NA,
-                           customs_desc = NA,
-                           cifvalue = NA,
-                           fobvalue = NA,
-                           primary_value = NA)
-      } else {
-        data <- data %>% 
-          select(freq_code, 
-                 ref_period_id,
-                 ref_year, 
-                 ref_month,
-                 period,
-                 reporter_iso, 
-                 reporter_desc, 
-                 flow_code, 
-                 flow_desc,
-                 partner_iso, 
-                 partner2desc, 
-                 classification_code,
-                 cmd_code, 
-                 cmd_desc, 
-                 aggr_level,
-                 customs_code,
-                 customs_desc,
-                 cifvalue,
-                 fobvalue,
-                 primary_value)
-      }
-    }, error = function(e){
-      data <- data.frame(freq_code = NA, 
-                         ref_period_id = NA,
-                         ref_year = NA, 
-                         ref_month = NA,
-                         period = NA,
-                         reporter_iso = i, 
-                         reporter_desc = NA, 
-                         flow_code = NA, 
-                         flow_desc = NA,
-                         partner_iso = NA, 
-                         partner2desc = NA, 
-                         classification_code = NA,
-                         cmd_code = NA, 
-                         cmd_desc = NA, 
-                         aggr_level = NA,
-                         customs_code = NA,
-                         customs_desc = NA,
-                         cifvalue = NA,
-                         fobvalue = NA,
-                         primary_value = NA)
-    })
-    
-    service_output_list[[i]] <- service_data
-    
-  }
-  
-  service_output <- as.data.frame(do.call(rbind, service_output_list))
-  
-  rownames(service_output) <- 1:nrow(service_output)
+  # service_output_list <- list()
+  # 
+  # for (i in reporter) {
+  #   
+  #   cli::cli_h1("Pulling Services Data for Reporter: {i}")
+  #   
+  #   service_data <- tryCatch({
+  #     data <- ct_get_data(type = "services",
+  #                         frequency = "A",
+  #                         commodity_classification = "EB",
+  #                         commodity_code = "everything",
+  #                         flow_direction = c("import", "re-import", "export", "re-export"),
+  #                         reporter = i,
+  #                         partner = "all_countries",
+  #                         start_date = start,
+  #                         end_date = end) 
+  #     
+  #     if (identical(nrow(data), ncol(data))) {
+  #       data <- data.frame(freq_code = NA, 
+  #                          ref_period_id = NA,
+  #                          ref_year = NA, 
+  #                          ref_month = NA,
+  #                          period = NA,
+  #                          reporter_iso = i, 
+  #                          reporter_desc = NA, 
+  #                          flow_code = NA, 
+  #                          flow_desc = NA,
+  #                          partner_iso = NA, 
+  #                          partner2desc = NA, 
+  #                          classification_code = NA,
+  #                          cmd_code = NA, 
+  #                          cmd_desc = NA, 
+  #                          aggr_level = NA,
+  #                          customs_code = NA,
+  #                          customs_desc = NA,
+  #                          cifvalue = NA,
+  #                          fobvalue = NA,
+  #                          primary_value = NA)
+  #     } else {
+  #       data <- data %>% 
+  #         select(freq_code, 
+  #                ref_period_id,
+  #                ref_year, 
+  #                ref_month,
+  #                period,
+  #                reporter_iso, 
+  #                reporter_desc, 
+  #                flow_code, 
+  #                flow_desc,
+  #                partner_iso, 
+  #                partner2desc, 
+  #                classification_code,
+  #                cmd_code, 
+  #                cmd_desc, 
+  #                aggr_level,
+  #                customs_code,
+  #                customs_desc,
+  #                cifvalue,
+  #                fobvalue,
+  #                primary_value)
+  #     }
+  #   }, error = function(e){
+  #     data <- data.frame(freq_code = NA, 
+  #                        ref_period_id = NA,
+  #                        ref_year = NA, 
+  #                        ref_month = NA,
+  #                        period = NA,
+  #                        reporter_iso = i, 
+  #                        reporter_desc = NA, 
+  #                        flow_code = NA, 
+  #                        flow_desc = NA,
+  #                        partner_iso = NA, 
+  #                        partner2desc = NA, 
+  #                        classification_code = NA,
+  #                        cmd_code = NA, 
+  #                        cmd_desc = NA, 
+  #                        aggr_level = NA,
+  #                        customs_code = NA,
+  #                        customs_desc = NA,
+  #                        cifvalue = NA,
+  #                        fobvalue = NA,
+  #                        primary_value = NA)
+  #   })
+  #   
+  #   service_output_list[[i]] <- service_data
+  #   
+  # }
   
   # return list
-  output_list <- list(goods = goods_output, services = service_output)
+  output_list <- list(goods = goods_output)
   return(output_list)
 }
 
-# SERVICES REPLACEMENT harmonising unctad trade data with comtrade
-harmonise_load_unctad <- function(countrycode) {
+## service data load
+# harmonising unctad trade data with comtrade
+harmonise_service_load_unctad <- function(countrycode) {
   
   data_path <- "~/international-Trade-Dashboard/data/"
   file_pattern <- "services_[0-9]{4}_[0-9]{4}"
@@ -299,20 +296,50 @@ harmonise_load_unctad <- function(countrycode) {
     file_csv <- grep(file_pattern, x = files_in_data_folder, value = TRUE)
     services_data <- read.csv(paste0(data_path, file_csv)) %>% 
       inner_join(countrycode, by = join_by(`Economy.Label` == "iso.name.en")) %>% 
-      select(Year, `Economy.Label`, ISO3_CODE, `Partner.Label`, Flow, `Flow.Label`, Category, `Category.Label`,
-             `US..at.current.prices.in.millions`,`Percentage.of.total.trade.in.services`) %>% 
-      rename("period" = Year,
+      select(Period, Period.Label, `Economy.Label`, ISO3_CODE,  Flow, `Flow.Label`, Category, `Category.Label`,
+             `US..at.current.prices.in.millions`) %>% 
+      rename("period" = Period,
+             "ref_period_id" = Period.Label,
              "reporter_iso" = ISO3_CODE,
              "reporter_desc" = `Economy.Label`,
              "flow_code" = Flow,
              "flow_desc" = `Flow.Label`,
-             "partner_desc" = `Partner.Label`,
              "cmd_code" = Category,
              "cmd_desc" = `Category.Label`,
-             "primary_value" = `US..at.current.prices.in.millions`,
-             "per_total_service" = `Percentage.of.total.trade.in.services`) %>% 
-      mutate(flow_code = if_else(flow_code == 1, "M", "X")) %>% 
-      left_join(countrycode, by = join_by("partner_desc" == "iso.name.en"))
+             "primary_value" = `US..at.current.prices.in.millions`) %>% 
+      mutate(flow_code = if_else(flow_code == 1, "M", "X"),
+             partner_iso = "W00",
+             partner2desc = "World",
+             classification_code = "BPM6",
+             freq_code = "Q",
+             customs_code = "EB",
+             customs_desc = "TOTAL EB",
+             ref_year = as.numeric(substr(period, 1, 4)),
+             ref_month = substr(period, 5, 7),
+             aggr_level = 1,
+             cifvalue = if_else(flow_code == "M", primary_value, NA),
+             fobvalue = if_else(flow_code == "X", primary_value, NA)) %>% 
+      relocate(freq_code,
+               ref_period_id,
+               ref_year,
+               ref_month,
+               period,
+               reporter_iso,
+               reporter_desc,
+               flow_code,
+               flow_desc,
+               partner_iso,
+               partner2desc,
+               classification_code,
+               cmd_code,
+               cmd_desc,
+               aggr_level,
+               customs_code,
+               customs_desc,
+               cifvalue,
+               fobvalue,
+               primary_value)
+    
     
     # replace the old huge file into the filtered one
     file.remove(paste0(data_path, file_csv))
@@ -322,7 +349,7 @@ harmonise_load_unctad <- function(countrycode) {
     
   } else if (any(stringr::str_detect(files_in_data_folder, "services_data.rds"))){
     
-    services_data <- read.csv(paste0(data_path, file_csv))
+    services_data <- readRDS(paste0(data_path, "services_data.rds"))
     
   } else {
     

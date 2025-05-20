@@ -106,16 +106,16 @@ loop_across_countries <- function(batches, start, end, hs) {
     }
     
     # store service data
-    service_data <- data[[1]][[2]]
-    if (nrow(final_service_data) == 0 & ncol(final_service_data) == 0) {
-      
-      final_service_data <- service_data
-      
-    } else {
-      
-      final_service_data <- rbind(final_service_data, service_data)
-      
-    }
+    # service_data <- data[[1]][[2]]
+    # if (nrow(final_service_data) == 0 & ncol(final_service_data) == 0) {
+    #   
+    #   final_service_data <- service_data
+    #   
+    # } else {
+    #   
+    #   final_service_data <- rbind(final_service_data, service_data)
+    #   
+    # }
     
     # store monthly goods data
     monthly_trade_data <- data[[2]]
@@ -143,6 +143,10 @@ loop_across_countries <- function(batches, start, end, hs) {
     
   }
   
+  # store service data 
+  # service quarterly data 
+  final_service_data <- harmonise_service_load_unctad(countrycode)
+  
   return(list(goods = final_trade_data, monthly_goods = final_monthly_trade_data, services = final_service_data, macro = final_macro_data))
 }
 
@@ -166,7 +170,7 @@ sqlite_push <- function(data_list){
         sql_data_for_join <- dbGetQuery(conn, sql_query)
         
         # new data summarised
-        new_data_for_join <- data %>% group_by(ref_year, reporter_iso) %>%  summarise(n = n()) %>% select(-n)
+        new_data_for_join <- data %>% mutate(ref_year = as.numeric(ref_year)) %>% group_by(ref_year, reporter_iso) %>%  summarise(n = n()) %>% select(-n)
         
         # anti join both dataframe (this will collect the remainder data rows that are not in the sql database)
         new_data_filter <- anti_join(new_data_for_join, sql_data_for_join, by = join_by(ref_year, reporter_iso))
@@ -185,7 +189,7 @@ sqlite_push <- function(data_list){
           cli::cli_h3(paste0("The new data dimension and content are exactly matched with the one in the base"))
           
           overwrite_table <- rstudioapi::showQuestion(title = "Overwriting option", 
-                                                      message = "Would you like to overwrite the table?",
+                                                      message = sprintf("Would you like to overwrite the %s table?", i),
                                                       ok = "Yes", cancel = "No")
           if (overwrite_table) {
             

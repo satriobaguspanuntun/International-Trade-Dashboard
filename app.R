@@ -160,6 +160,11 @@ ui <- dashboardPage(
           icon = icon("chevron-right")
         ),
         menuSubItem(
+          text = "Commodity Analysis",
+          tabName = "commodity_analysis",
+          icon = icon("chevron-right")
+        ),
+        menuSubItem(
           text = "Trade-Forecasting",
           tabName = "forecasting_trade",
           icon = icon("chevron-right")
@@ -189,9 +194,21 @@ ui <- dashboardPage(
   ),
   body = dashboardBody(
     tabItems(
-      
       tabItem(
         tabName = "home",
+        
+        tags$head(
+          tags$style(
+            HTML(
+              ".box-quote {
+                 font-style: italic,
+                 color: #2c3e50;
+                 background-color: #f4f6f9;
+                 border-left: 5px solid #001f3f;
+                 padding: 15px;"
+            )
+          )
+        ),
         
         jumbotron(
           title = "Welcome to Macroeconomic and Trade Dashboard!",
@@ -222,18 +239,74 @@ ui <- dashboardPage(
           box(
             collapsible = FALSE,
             title = "Favourite Quote",
-            blockQuote(
-              "In your actions, don’t procrastinate. In your conversations, don’t confuse. In your thoughts, don’t wander. In your soul, don’t be passive or aggressive. In your life, don’t be all about business. - Marcus Aurelius",
-              color = "navy"
+            
+            div(class = "box-quote",
+                HTML("“In your actions, don’t procrastinate. In your conversations, don’t confuse. In your thoughts, don’t wander. In your soul, don’t be passive or aggressive. In your life, don’t be all about business.” <br><b>- Marcus Aurelius</b>")
             )
-          
+            
           )
         )
-        
       ),
       tabItem(
         tabName = "macro_main_stats",
         fluidRow(
+          div(
+            style = "text-align: left; width: 100%; padding-bottom: 10px;",
+            
+            tags$head(
+              tags$style(HTML("
+      @keyframes slideFadeInText {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes slideInLine {
+        from { width: 0; opacity: 0; }
+        to { width: 100%; opacity: 1; }
+      }
+
+      .title-container {
+        display: inline-block;
+        animation: slideFadeInText 0.8s ease-out forwards;
+      }
+
+      .title-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+      }
+
+      .animated-hr {
+        height: 4px;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        border: none;
+        margin-top: 5px;
+        animation: slideInLine 1s ease-out forwards;
+        animation-delay: 0.4s;
+        animation-fill-mode: both;
+      }
+
+      .header-icon {
+        color: #3498db;
+        font-size: 28px;
+      }
+    "))
+            ),
+            
+            div(
+              class = "title-container",
+              tags$div(
+                class = "title-content",
+                tags$i(class = "fas fa-chart-line header-icon"),
+                "Macroeconomic Statistics"
+              ),
+              tags$hr(class = "animated-hr")
+            )
+          ),
             column(
               width = 3,
               offset = 0,
@@ -424,8 +497,54 @@ ui <- dashboardPage(
         useBusyIndicators(),
         busyIndicatorOptions(spinner_type = "ring2",
                              spinner_size = "80px"),
-        h2("International Trade Statistics"),
-        tags$hr(),
+        div(
+          style = "display: inline-block; text-align: left;",
+          tags$head(
+            tags$style(HTML("
+      @keyframes slideFadeInText {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slideInLine {
+        from {
+          width: 0;
+          opacity: 0;
+        }
+        to {
+          width: 100%;
+          opacity: 1;
+        }
+      }
+
+      .animated-h3 {
+        animation: slideFadeInText 0.8s ease-out forwards;
+        color: #2c3e50;
+        font-weight: bold;
+        font-size: 26px;
+        margin-bottom: 5px;
+      }
+
+      .animated-hr {
+        height: 3px;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        border: none;
+        animation: slideInLine 1s ease-out forwards;
+        animation-delay: 0.3s;
+        animation-fill-mode: both;
+      }
+    "))
+          ),
+          tags$h3("📦 International Merchandise Trade Statistics (Goods Export and Import)",
+                  class = "animated-h3"),
+          tags$hr(class = "animated-hr")
+        ),
         fluidRow(
           column(
             width = 4,
@@ -519,19 +638,98 @@ ui <- dashboardPage(
           width = 12,
           uiOutput("sankey_chart")
         )
+      ),
+      # this bit below should be in a uioutput
+      div(
+        tags$br(),
+        tags$h3("International Trade in Services (Service Export and Import)",
+                class = "animated-h3"),
+        tags$hr(class = "animated-hr")),
+      fluidRow(
+        column(width = 6,
+               uiOutput("")))
+     ),
+     tabItem(
+       tabName = "commodity_analysis",
+       useBusyIndicators(),
+       fluidRow(
+         column(
+           width = 4,
+       div(
+         style = "text-align: left; width: 100%; padding-bottom: 10px;",
+         
+         tags$head(
+           tags$style(HTML("
+      @keyframes slideFadeInText {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes slideInLine {
+        from { width: 0; opacity: 0; }
+        to { width: 100%; opacity: 1; }
+      }
+
+      .title-container {
+        display: inline-block;
+        animation: slideFadeInText 0.8s ease-out forwards;
+      }
+
+      .title-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+      }
+
+      .animated-hr {
+        height: 4px;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        border: none;
+        margin-top: 5px;
+        animation: slideInLine 1s ease-out forwards;
+        animation-delay: 0.4s;
+        animation-fill-mode: both;
+      }
+
+      .header-icon {
+        color: #3498db;
+        font-size: 28px;
+      }
+    "))
+         ),
+         
+         div(
+           class = "title-container",
+           tags$div(
+             class = "title-content",
+             tags$i(class = "fas fa-chart-bar header-icon"),
+             "Commodity Analysis"
+           ),
+           tags$hr(class = "animated-hr")
+         )
+       )
+      ),
+      column(
+        width = 8,
+        tags$h5("Hello")
       )
+     )
      ),
      tabItem(
        tabName = "forecasting_trade",
-       tags$h1("In Progress...")
+       tags$h1("Work In Progress...")
      ),
      tabItem(
        tabName = "macro_forecast",
-       tags$h1("In Progress...")
+       tags$h1("Work In Progress...")
      ),
      tabItem(
        tabName = "macro_forecast",
-       tags$h1("In Progress...")
+       tags$h1("Work In Progress...")
      )
     )
   )
@@ -997,20 +1195,108 @@ server <- function(input, output) {
   
   # NOTE: I think storing all of the data needed up front in a list 
   # Would be the best option to simplify and refactor repeated codes.
+  # data requirements:
+  # 1. Trade map data
+  # 2. Trade data for valueboxes
+  # 3. dataset for top commodities
+  # 4. 10 years trade data for line chart.
   
-  
-  trade_data <- reactive({
-
-    trade_data_test <- sql_export_query(conn,
-                                        start =  trade_input$year,
-                                        end = trade_input$year,
-                                        trade_flow = trade_input$trade_flow_select,
-                                        type = "goods",
-                                        country = trade_input$country) %>% 
+  # get data trade helper
+  get_trade_data <- function(conn, country, start, end, trade_flow, type = "goods") {
+    # call sql export function
+    if (type == "goods") {
+      
+    sql_export_query(conn, country = country, start = start, end = end, trade_flow = trade_flow, type = type)  %>% 
       mutate(primary_value = as.numeric(primary_value),
              fobvalue = as.numeric(fobvalue),
              cifvalue = as.numeric(cifvalue))
-
+      
+    } else if (type == "services") {
+      
+      start_serv <- as.integer(paste0(start, "01"))
+      end_serv <- as.integer(paste0(end, "04"))
+      
+      sql_service_query(conn, country, start_serv, end_serv, trade_flow) %>% 
+        mutate(primary_value = as.numeric(primary_value))
+      
+    }
+  }
+  
+  # declare centralised data storage
+  trade_data_rv <- reactiveValues(trade_map_data = NULL,
+                                  trade_data_box_commod = NULL,
+                                  trade_data_max = NULL,
+                                  trade_service_data = NULL)
+  
+  observe({
+    
+    # ensure the input exist before pulling any data
+    req(trade_input$country, trade_input$year, trade_input$trade_flow_select)
+    
+    # parameters
+    current_year <- as.character(trade_input$year)
+    prev_year <- as.character(as.numeric(current_year) - 1)
+    
+    # trade map data
+    trade_data_rv$trade_map_data <- get_trade_data(conn = conn,
+                                                   country = trade_input$country,
+                                                   start = current_year,
+                                                   end = current_year,
+                                                   trade_flow = trade_input$trade_flow_select,
+                                                   type = "goods")
+    
+    # trade for valueboxes and top commodities
+    export_box_commod <- get_trade_data(conn = conn,
+                                        country = trade_input$country,
+                                        start = prev_year,
+                                        end = current_year,
+                                        trade_flow = "X",
+                                        type = "goods")
+    
+    import_box_commod <- get_trade_data(conn = conn,
+                                        country = trade_input$country,
+                                        start = prev_year,
+                                        end = current_year,
+                                        trade_flow = "M",
+                                        type = "goods")
+    
+    trade_data_rv$trade_data_box_commod <- do.call(rbind, list(export_box_commod, import_box_commod))
+    
+    # max year trade data for line chart and sankey
+    export_max <- get_trade_data(conn = conn,
+                                 country = trade_input$country,
+                                 start = min_year_trade,
+                                 end = max_year_trade,
+                                 trade_flow = "X",
+                                 type = "goods")
+    
+    import_max <- get_trade_data(conn = conn,
+                                 country = trade_input$country,
+                                 start = min_year_trade,
+                                 end = max_year_trade,
+                                 trade_flow = "M",
+                                 type = "goods")
+    
+    trade_data_rv$trade_data_max <- do.call(rbind, list(export_max, import_max))
+    
+    # serivce data periods ranges from 2005Q1 up to 2024Q4, matched the date range with
+    # the goods data.
+    export_max_serv <- get_trade_data(conn = conn,
+                                 country = trade_input$country,
+                                 start = min_year_trade,
+                                 end = max_year_trade,
+                                 trade_flow = "X",
+                                 type = "services")
+    
+    import_max_serv <- get_trade_data(conn = conn,
+                                 country = trade_input$country,
+                                 start = min_year_trade,
+                                 end = max_year_trade,
+                                 trade_flow = "M",
+                                 type = "services")
+    
+    trade_data_rv$trade_service_data <- do.call(rbind, list(export_max_serv, import_max_serv))
+    
   })
   
   trade_map_function <- function(world_map_data, trade_data, trade_flow, year_select) {
@@ -1085,45 +1371,16 @@ server <- function(input, output) {
   
   output$trade_map_leaflet <- renderLeaflet({
     
+    req(trade_data_rv$trade_map_data)
+    
     trade_world_map <- trade_map_function(world_map_data = world_sf,
-                                          trade_data = trade_data(),
+                                          trade_data = trade_data_rv$trade_map_data,
                                           trade_flow = trade_input$trade_flow_select,
                                           year_select = trade_input$year )
   })
   
   ## stats trade boxes
-  
-  # call data for both export and import
-  trade_data_for_box <- reactive({
-    
-    # export
-    trade_export <- sql_export_query(conn, 
-                                     country = trade_input$country,
-                                     start = as.character(as.numeric(trade_input$year) - 1),
-                                     end = trade_input$year,
-                                     trade_flow = "X",
-                                     type = "goods") %>% 
-      mutate(primary_value = as.numeric(primary_value),
-             fobvalue = as.numeric(fobvalue),
-             cifvalue = as.numeric(cifvalue))
-    
-    # import
-    trade_import <- sql_export_query(conn, 
-                                     country = trade_input$country,
-                                     start = as.character(as.numeric(trade_input$year) - 1),
-                                     end = trade_input$year,
-                                     trade_flow = "M",
-                                     type = "goods") %>% 
-      mutate(primary_value = as.numeric(primary_value),
-             fobvalue = as.numeric(fobvalue),
-             cifvalue = as.numeric(cifvalue))
-    
-    # append both data
-    trade_all <- do.call(rbind, list(trade_export, trade_import))
-    
-    return(trade_all)
-  })
-  
+
   trade_stats_box <- function(data, year = NULL, type, what) {
     
     if (what == "value" & !is.null(year)) {
@@ -1201,11 +1458,11 @@ server <- function(input, output) {
   # two way trade
   # Render the percentage and value outputs
   per_two_way <- reactive({
-    str_remove(trade_stats_box(trade_data_for_box(), type = "two_way", what = "percent"), "/w")
+    str_remove(trade_stats_box( trade_data_rv$trade_data_box_commod, type = "two_way", what = "percent"), "/w")
   })
   
   val_two_way <- reactive({
-    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "two_way", what = "value")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, year = trade_input$year, type = "two_way", what = "value")
   })
   
   output$two_way <- renderUI({
@@ -1224,11 +1481,11 @@ server <- function(input, output) {
   # total export trade
   # Render the percentage and value outputs
   per_export <- reactive({
-    trade_stats_box(trade_data_for_box(), type = "export", what = "percent")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, type = "export", what = "percent")
   })
   
   val_export <- reactive({
-    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "export", what = "value")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, year = trade_input$year, type = "export", what = "value")
   })
   
   output$trade_export <- renderUI({
@@ -1247,11 +1504,11 @@ server <- function(input, output) {
   # total import trade
   # Render the percentage and value outputs
   per_import <- reactive({
-    trade_stats_box(trade_data_for_box(), type = "import", what = "percent")
+    trade_stats_box(trade_data_rv$trade_data_box_commod, type = "import", what = "percent")
   })
   
   val_import <- reactive({
-    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "import", what = "value")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, year = trade_input$year, type = "import", what = "value")
   })
   
   output$trade_import <- renderUI({
@@ -1270,11 +1527,11 @@ server <- function(input, output) {
   # total trade balance trade
   # Render the percentage and value outputs
   per_balance <- reactive({
-    trade_stats_box(trade_data_for_box(), type = "trade_balance", what = "percent")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, type = "trade_balance", what = "percent")
   })
   
   val_balance <- reactive({
-    trade_stats_box(trade_data_for_box(), year = trade_input$year, type = "trade_balance", what = "value")
+    trade_stats_box( trade_data_rv$trade_data_box_commod, year = trade_input$year, type = "trade_balance", what = "value")
   })
   
   output$trade_balance <- renderUI({
@@ -1289,6 +1546,12 @@ server <- function(input, output) {
       marginBottom = FALSE
     )
   })
+  
+  # --------------------------------------------------------------#  
+  #                                                               #
+  ###-- Bar chart showing top 10 export and import partner  -----###
+  #                                                               #
+  #---------------------------------------------------------------# 
   
   ## Bar chart showing top 10 export and import partner (selected year)
   trade_bar_chart <- function(data, trade_flow, year) {
@@ -1437,7 +1700,7 @@ server <- function(input, output) {
   
   output$top_export <- renderUI({
     
-    output$top_10_export_bar <- renderPlotly({trade_bar_chart(data = trade_data_for_box(), 
+    output$top_10_export_bar <- renderPlotly({trade_bar_chart(data =  trade_data_rv$trade_data_box_commod, 
                                                               trade_flow = "X",
                                                               year = trade_input$year)})
       box(
@@ -1454,7 +1717,7 @@ server <- function(input, output) {
   
   output$top_import <- renderUI({
     
-    output$top_10_import_bar <- renderPlotly({trade_bar_chart(data = trade_data_for_box(), 
+    output$top_10_import_bar <- renderPlotly({trade_bar_chart(data =  trade_data_rv$trade_data_box_commod, 
                                                               trade_flow = "M",
                                                               year = trade_input$year)})
     
@@ -1471,12 +1734,15 @@ server <- function(input, output) {
     
   })
   
-  ## top 10 export and import commodities
-  
+  # --------------------------------------------------------------#  
+  #                                                               #
+  ###----------- top 10 export and import commodities ----------###
+  #                                                               #
+  #---------------------------------------------------------------#  
   # dataset for top commod
   top_commod_value <- reactive({
     # use trade_data_for_box
-    commod_val <- trade_data_for_box() %>%
+    commod_val <-  trade_data_rv$trade_data_box_commod %>%
       left_join(clean_hs_commod, by = join_by(cmd_code == id)) %>% 
       select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, cmd_code, text, primary_value) %>% 
       rename("hs_description" = text) %>% 
@@ -1673,8 +1939,6 @@ server <- function(input, output) {
     )
   }
   
-  text_total_list <- reactive({html_trade_info_total(trade_data_ten_years())})
-  
   generate_html_text_total <- function(data, what) {
     
     list_data <- data
@@ -1773,6 +2037,8 @@ server <- function(input, output) {
     final_html <- HTML(paste0(initial_text, paste0(text_vec, collapse = " "), end_text))
     return(final_html)
   }
+  
+  text_total_list <- reactive({html_trade_info_total(trade_data_rv$trade_data_max)})
     
     output$top_export_commod <- renderUI({
       
@@ -1822,42 +2088,17 @@ server <- function(input, output) {
       
     })
   
+    
+    # --------------------------------------------------------------#  
+    #                                                               #
+    ###------------------- Annual Aggregate series----------------###
+    #                                                               #
+    #---------------------------------------------------------------#  
   ## Line chart for export, import and trade balance in one charts split into export and import 
-  ## data (10 years worth of data)
-  # call data for both export and import
-    trade_data_ten_years <- reactive({
-      
-      # export
-      trade_export <- sql_export_query(conn, 
-                                       country = trade_input$country,
-                                       start = as.character(as.numeric(trade_input$year) - 10),
-                                       end = trade_input$year,
-                                       trade_flow = "X",
-                                       type = "goods") %>% 
-        mutate(primary_value = as.numeric(primary_value),
-               fobvalue = as.numeric(fobvalue),
-               cifvalue = as.numeric(cifvalue))
-      
-      # import
-      trade_import <- sql_export_query(conn, 
-                                       country = trade_input$country,
-                                       start = as.character(as.numeric(trade_input$year) - 10),
-                                       end = trade_input$year,
-                                       trade_flow = "M",
-                                       type = "goods") %>% 
-        mutate(primary_value = as.numeric(primary_value),
-               fobvalue = as.numeric(fobvalue),
-               cifvalue = as.numeric(cifvalue))
-      
-      # append both data
-      trade_all <- do.call(rbind, list(trade_export, trade_import))
-      
-      return(trade_all)
-    })
     
     output$export_import_line_chart <- renderUI({
       
-      ts_total_trade <-  trade_data_ten_years() %>%
+      ts_total_trade <-  trade_data_rv$trade_data_max %>%
         left_join(clean_hs_commod, by = join_by(cmd_code == id)) %>% 
         select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, cmd_code, text, primary_value) %>% 
         rename("hs_description" = text) %>% 
@@ -2026,7 +2267,11 @@ server <- function(input, output) {
              )
     })
     
-    ## Sankey section
+    # --------------------------------------------------------------#  
+    #                                                               #
+    ###------------------- Sankey Analysis page ------------------###
+    #                                                               #
+    #---------------------------------------------------------------#
     sankey_trade_chart <- function(data, country, what, year, hs_vector, commod, countrycode) {
       
       if(length(hs_vector) > 6) {
@@ -2187,7 +2432,7 @@ server <- function(input, output) {
       req(input$sankey_hs_input)           # ← wait until it’s non‑null
       
       sankey_trade_chart(
-        data        = trade_data_ten_years(),
+        data        = trade_data_rv$trade_data_max,
         country     = trade_input$country,
         what        = input$sankey_what_input,
         year        = trade_input$year,
@@ -2199,8 +2444,27 @@ server <- function(input, output) {
     })
     
     ###----------------------------------------------------------###
-    ### ----------------- Bilateral Trade page ------------------###
+    ### ----------------- Services Summary stats ----------------###
     ###----------------------------------------------------------###
+    
+    
+    
+    
+    
+    
+    
+    
+    ###----------------------------------------------------------###
+    ### ----------------- Commodity Analysis page ---------------###
+    ###----------------------------------------------------------###
+    
+    ## WHAT DO I NEED?
+    # trade data both services and goods
+    #  
+    
+    
+    
+    
     # function to summarised based on the selection of frequency (monthly, quarterly, annual)
     monthly_trade_summariser_func <- function(data, freq) {
       

@@ -6,7 +6,7 @@ library(RSQLite)
 ## Connection specs
 conn <- dbConnect(SQLite(), "~/international-Trade-Dashboard/master_db.db")
 
-# 1. pull trade data -------------------
+# 1. pull annual trade data -------------------
 sql_export_query <- function(conn, country, start, end, trade_flow, type) {
   # incorporate error handling exception (IMPORTANT)
   
@@ -31,6 +31,40 @@ sql_export_query <- function(conn, country, start, end, trade_flow, type) {
                                                        primary_value = as.numeric(primary_value),
                                                        cifvalue = as.numeric(cifvalue))
   return(data_trade)
+}
+
+# 2. pull monthly trade data -----------------
+sql_monthly_export_query <- function(conn, country, start, end, trade_flow, type) {
+  
+  check_year_month <- function(x) {
+    grepl("^\\d{4}\\d{2}$", x)
+  }
+  
+  if (!check_year_month(start) & !check_year_month(end)){
+    stop("Please supply the dates with YYYYMM format.")
+  }
+  
+  # Basic input validation
+  start_numeric <- as.numeric(start)
+  end_numeric <- as.numeric(end)
+  
+  
+  date_sql_trade_range <- paste0(as.character(seq.int(start_numeric, end_numeric, by = 1)), collapse = ",")
+  trade_flow <- paste0(trade_flow, collapse = ",")
+  
+  sql_query <- sprintf("SELECT * FROM '%s' 
+                       WHERE period IN (%s) 
+                       AND flow_code = '%s' 
+                       AND reporter_desc = '%s'",
+                       type,
+                       date_sql_trade_range,
+                       trade_flow,
+                       country)
+  
+  data_trade_monthly <- dbGetQuery(conn, sql_query) %>% mutate(fobvalue = as.numeric(fobvalue),
+                                                       primary_value = as.numeric(primary_value),
+                                                       cifvalue = as.numeric(cifvalue))
+  return(data_trade_monthly)
 }
 
 # 3. pull macro data --------------------
@@ -64,6 +98,49 @@ sql_macro_query <-  function(conn, start, end) {
   data_sql_macro <- dbGetQuery(conn, sql_query)
   
   return(data_sql_macro)
+}
+
+# 4. pull services data ------------------
+sql_service_query <- function(conn, country, start, end, trade_flow) {
+  
+  
+  check_year_month <- function(x) {
+    grepl("^\\d{4}\\d{2}$", x)
+  }
+  
+  if (!check_year_month(start) & !check_year_month(end)){
+    stop("Please supply the dates with YYYYMM format.")
+  }
+  
+  sql_query <- sprintf("SELECT * FROM (SELECT 
+                                            freq_code,
+                                            ref_period_id,
+                                            ref_year,
+                                            ref_month,
+                                            CAST(
+                                                ref_year || SUBSTR(ref_month, 2, 3)
+                                                AS INTERGER
+                                                ) AS new_ref_year_month,
+                                            period,
+                                            reporter_iso,
+                                            reporter_desc,
+                                            flow_code,
+                                            flow_desc,
+                                            partner_iso,
+                                            partner2desc,
+                                            cmd_code,
+                                            cmd_desc,
+                                            primary_value
+                                       FROM services 
+                                       WHERE reporter_desc = '%s')
+                        WHERE new_ref_year_month >= %s
+                        AND new_ref_year_month <= %s
+                        AND flow_code = '%s'",
+                       country, start, end, trade_flow)
+  
+  data_sql_services <- dbGetQuery(conn, sql_query)
+  
+  return(data_sql_services)
 }
 
 # 4. joined export, import, and macro data with country concordances ------------------
