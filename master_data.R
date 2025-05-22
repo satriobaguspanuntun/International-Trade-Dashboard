@@ -128,7 +128,3 @@ pull_master_data <- function(country_batches_to_run, start_date, end_date, hs_ty
 pull_master_data(country_batches_to_run = country_batches, start_date = start_pull_date, end_date = end_pull_date, hs_type = hs2)
 
 dbDisconnect(conn)
-
-#test <- loop_across_countries(country_batches[3], start = "2020", end = "2023", hs = hs2)
-
-#sqlite_push(data_list = test)

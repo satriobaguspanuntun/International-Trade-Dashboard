@@ -497,10 +497,38 @@ ui <- dashboardPage(
         useBusyIndicators(),
         busyIndicatorOptions(spinner_type = "ring2",
                              spinner_size = "80px"),
-        div(
-          style = "display: inline-block; text-align: left;",
-          tags$head(
-            tags$style(HTML("
+        fluidRow(
+          column(
+            width = 4,
+            virtualSelectInput(inputId = "trade_stats_country",
+                               label = "Select Country",
+                               choices = countrycode$iso.name.en,
+                               multiple = FALSE,
+                               width = "100%",
+            )
+          ),
+          column(
+            width = 4,
+            airDatepickerInput(
+              inputId = "trade_stats_year",
+              label = "Year",
+              value = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
+              dateFormat = "yyyy",
+              view = "years",
+              minView = "years",
+              minDate = as.Date(paste0(min_year_trade, "-", "01", "-", "01")),
+              maxDate = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
+              width = "100%"
+            )
+          )
+        ),
+        fluidRow(
+          column(
+            width = 8,
+            div(
+              style = "display: inline-block; text-align: left;",
+              tags$head(
+                tags$style(HTML("
       @keyframes slideFadeInText {
         from {
           opacity: 0;
@@ -528,7 +556,7 @@ ui <- dashboardPage(
         color: #2c3e50;
         font-weight: bold;
         font-size: 26px;
-        margin-bottom: 5px;
+        margin-top: 20px;
       }
 
       .animated-hr {
@@ -540,34 +568,11 @@ ui <- dashboardPage(
         animation-fill-mode: both;
       }
     "))
-          ),
-          tags$h3("📦 International Merchandise Trade Statistics (Goods Export and Import)",
-                  class = "animated-h3"),
-          tags$hr(class = "animated-hr")
-        ),
-        fluidRow(
-          column(
-            width = 4,
-            virtualSelectInput(inputId = "trade_stats_country",
-                        label = "Select Country",
-                        choices = countrycode$iso.name.en,
-                        multiple = FALSE,
-                        width = "100%",
-                       )
-        ),
-        column(
-          width = 4,
-          airDatepickerInput(
-            inputId = "trade_stats_year",
-            label = "Year",
-            value = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
-            dateFormat = "yyyy",
-            view = "years",
-            minView = "years",
-            minDate = as.Date(paste0(min_year_trade, "-", "01", "-", "01")),
-            maxDate = as.Date(paste0(max_year_trade, "-", "01", "-", "01")),
-            width = "100%"
-          )
+              ),
+              tags$h3("📦 International Merchandise Trade Statistics (Goods Export and Import)",
+                      class = "animated-h3"),
+              tags$hr(class = "animated-hr")
+            )
         ),
         column(
           width = 4,
@@ -585,7 +590,7 @@ ui <- dashboardPage(
       fluidRow(
         column(
           width = 12,
-          leafletOutput(outputId = "trade_map_leaflet", height = "500px")
+          leafletOutput(outputId = "trade_map_leaflet", height = "400px")
         )
       ),
         fluidRow(
@@ -640,82 +645,84 @@ ui <- dashboardPage(
         )
       ),
       # this bit below should be in a uioutput
-      div(
-        tags$br(),
-        tags$h3("International Trade in Services (Service Export and Import)",
-                class = "animated-h3"),
-        tags$hr(class = "animated-hr")),
+      uiOutput("service_title"),
       fluidRow(
         column(width = 6,
-               uiOutput("")))
+               uiOutput("service_valuebox"),
+               uiOutput("top_export_import_service")
+        ),
+        column(width = 6,
+               uiOutput("service_line_chart")
+        )
+      )
      ),
      tabItem(
        tabName = "commodity_analysis",
        useBusyIndicators(),
        fluidRow(
-         column(
-           width = 4,
-       div(
-         style = "text-align: left; width: 100%; padding-bottom: 10px;",
-         
-         tags$head(
-           tags$style(HTML("
-      @keyframes slideFadeInText {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      @keyframes slideInLine {
-        from { width: 0; opacity: 0; }
-        to { width: 100%; opacity: 1; }
-      }
-
-      .title-container {
-        display: inline-block;
-        animation: slideFadeInText 0.8s ease-out forwards;
-      }
-
-      .title-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 28px;
-        font-weight: 700;
-        color: #2c3e50;
-        margin: 0;
-      }
-
-      .animated-hr {
-        height: 4px;
-        background: linear-gradient(to right, #2c3e50, #3498db);
-        border: none;
-        margin-top: 5px;
-        animation: slideInLine 1s ease-out forwards;
-        animation-delay: 0.4s;
-        animation-fill-mode: both;
-      }
-
-      .header-icon {
-        color: #3498db;
-        font-size: 28px;
-      }
-    "))
-         ),
-         
-         div(
-           class = "title-container",
-           tags$div(
-             class = "title-content",
-             tags$i(class = "fas fa-chart-bar header-icon"),
-             "Commodity Analysis"
-           ),
-           tags$hr(class = "animated-hr")
-         )
-       )
-      ),
+    #'      column(
+    #'        width = 4,
+    #'    div(
+    #'      style = "text-align: left; width: 100%; padding-bottom: 10px;",
+    #'      
+    #'      tags$head(
+    #'        tags$style(HTML("
+    #'   @keyframes slideFadeInText {
+    #'     from { opacity: 0; transform: translateY(20px); }
+    #'     to { opacity: 1; transform: translateY(0); }
+    #'   }
+    #' 
+    #'   @keyframes slideInLine {
+    #'     from { width: 0; opacity: 0; }
+    #'     to { width: 100%; opacity: 1; }
+    #'   }
+    #' 
+    #'   .title-container {
+    #'     display: inline-block;
+    #'     animation: slideFadeInText 0.8s ease-out forwards;
+    #'   }
+    #' 
+    #'   .title-content {
+    #'     display: flex;
+    #'     align-items: center;
+    #'     gap: 10px;
+    #'     font-size: 28px;
+    #'     font-weight: 700;
+    #'     color: #2c3e50;
+    #'     margin: 0;
+    #'   }
+    #' 
+    #'   .animated-hr {
+    #'     height: 4px;
+    #'     background: linear-gradient(to right, #2c3e50, #3498db);
+    #'     border: none;
+    #'     margin-top: 5px;
+    #'     animation: slideInLine 1s ease-out forwards;
+    #'     animation-delay: 0.4s;
+    #'     animation-fill-mode: both;
+    #'   }
+    #' 
+    #'   .header-icon {
+    #'     color: #3498db;
+    #'     font-size: 28px;
+    #'   }
+    #' "))
+    #'      ),
+    #'      
+    #'      div(
+    #'        class = "title-container",
+    #'        tags$div(
+    #'          class = "title-content",
+    #'          tags$i(class = "fas fa-chart-bar header-icon"),
+    #'          "Commodity Analysis"
+    #'        ),
+    #'        tags$hr(class = "animated-hr")
+    #'      )
+    #'    )
+    #'   ),
       column(
-        width = 8,
-        tags$h5("Hello")
+        width = 12,
+        tags$h1("Work in Progress...")
       )
      )
      ),
@@ -2422,7 +2429,7 @@ server <- function(input, output) {
             )
           )
         ),
-        highchartOutput(outputId = "sankey_trade_output", height = "800px"),
+        highchartOutput(outputId = "sankey_trade_output", height = "650px"),
         maximizable = TRUE
       )
       
@@ -2446,13 +2453,329 @@ server <- function(input, output) {
     ###----------------------------------------------------------###
     ### ----------------- Services Summary stats ----------------###
     ###----------------------------------------------------------###
+    # title generation
+    output$service_title <- renderUI({
+      fluidRow(
+        column(
+          width = 6,
+          div(
+            tags$br(),
+            tags$br(),
+            tags$h3("🌍 International Trade in Services (Service Export and Import)",
+                    class = "animated-h3"),
+            tags$hr(class = "animated-hr"))
+        )
+      )
+    })
+
+    # data for service boxes
+    service_data_for_box <- reactive({
+      
+      trade_data_rv$trade_service_data %>%
+        group_by(ref_year, reporter_iso, reporter_desc,flow_code, flow_desc, cmd_code, cmd_desc) %>% 
+        summarise(total_value = sum(primary_value)/1000) %>% 
+        ungroup() %>% 
+        filter(cmd_code == "S") %>% 
+        select(-flow_code) %>% 
+        pivot_wider(names_from = flow_desc, values_from = total_value) %>% 
+        mutate(`Trade Balance` = round(Exports - Imports, 2),
+               Exports = round(Exports, 2),
+               Imports = round(Imports, 2))
+    })
     
     
+    # valueboxes 
+    output$service_valuebox <- renderUI({
+      val_tot_exp <- service_data_for_box()$Exports[service_data_for_box()$ref_year == trade_input$year]
+      val_tot_imp <- service_data_for_box()$Imports[service_data_for_box()$ref_year == trade_input$year]
+      val_tot_bal <- service_data_for_box()$`Trade Balance`[service_data_for_box()$ref_year == trade_input$year]
+     
+      fluidRow( 
+      # 1. total services export
+      column(width = 4,
+      valueBox(
+        width = 12,
+        subtitle = HTML("<b>Service Export</b>"),
+        value = h5(paste0("$", val_tot_exp, "B")),
+        color = "primary",
+        gradient = TRUE,
+        icon = icon("paper-plane"),
+        elevation = 4
+      )),
+    # 2. total services import
+      column(width = 4,
+      valueBox(
+        width = 12,
+        subtitle = HTML("<b>Service Import</b>"),
+        value = h5(paste0("$", val_tot_imp, "B")),
+        color = "olive",
+        gradient = TRUE,
+        icon = icon("envelope-open-text"),
+        elevation = 4
+      )),
+    # 3. total services trade balance
+      column(width = 4,
+      valueBox(
+        width = 12,
+        subtitle = HTML("<b>Trade Balance</b>"),
+        value = h5(paste0("$", val_tot_bal, "B")),
+        color = if_else(val_tot_bal < 0, "danger", "success"),
+        gradient = TRUE,
+        icon = icon(if_else(val_tot_bal < 0, "arrow-down", "arrow-up")),
+        elevation = 4
+      ))
+      )
+    })
+    
+    # service breakdown treemap
+    total_service_map <- reactive({
+      
+      trade_data_rv$trade_service_data %>% 
+        group_by(ref_year, reporter_iso, reporter_desc,flow_code, flow_desc, cmd_code, cmd_desc) %>% 
+        summarise(total_value = sum(primary_value)/1000) %>% 
+        filter(!cmd_code %in% c("S", "SOX", "SPX1")) %>% 
+        ungroup() %>% 
+        group_by(ref_year, reporter_iso, reporter_desc,flow_code, flow_desc) %>% 
+        mutate(total_year = sum(total_value),
+               share_percent = (total_value/total_year) * 100)
+      
+    })
+    
+    output$top_export_import_service <- renderUI({
+      
+      box(
+        title = tagList(
+          div(
+            style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+            
+            # Left: Title
+            span(HTML("<strong>Services Breakdown</strong>")),
+            
+            # Right: Radio Buttons
+            div(
+              style = "
+                position: absolute;
+                top: 7px;
+                right: 80px;
+                padding-top: 2px;
+                padding-right: 10px;
+              ",
+              radioGroupButtons(
+                inputId = "service_what_input",
+                label = NULL,
+                choices = c("Exports", "Imports"),
+                selected = "Exports",
+                size = "sm",
+                checkIcon = list(yes = icon("check"))
+              )
+            )
+          )
+        ),
+        width = 12,
+        maximizable = TRUE,
+        elevation = 4,
+        status = "info",
+        collapsible = TRUE,
+        
+        # Treemap output
+         highchartOutput("treemap_service",height = "800px")
+        
+      )
+      
+    })
+    
+    output$treemap_service <- renderHighchart({
+      req(trade_input$year, input$service_what_input)
+      total_service_map() %>%
+        filter(ref_year == trade_input$year & flow_desc == input$service_what_input) %>%
+        ungroup() %>% 
+        data_to_hierarchical(cmd_desc, total_value) %>%
+        hchart(type = "treemap") %>% 
+        hc_tooltip(pointFormat = "<b>{point.name}</b><br>Value: ${point.value:,.2f}B") %>% 
+        hc_plotOptions(
+          treemap = list(
+            layoutAlgorithm = "squarified",
+            allowPointSelect = TRUE,
+            dataLabels = list(
+              enabled = TRUE,
+              format = '{point.name}',
+              style = list(
+                fontSize = '13px'
+              )
+            )
+          )
+        ) %>% 
+        hc_credits(enabled = TRUE,
+                   text = "Source: UN Comtrade",
+                   style = list(fontSize = "12px", color = "#666"))
+    })
+    
+    # data for service line chart
+    # helper function
+    service_data_summariser <- function(data, freq = c("annual", "quarterly"), what = c("total", "commodities")) {
+      freq <- match.arg(freq)
+      what <- match.arg(what)
+      
+      filtered_data <- data %>% 
+        filter(!cmd_code %in% c("SOX", "SPX1")) %>% 
+        mutate(primary_value = primary_value / 1000)  
+      
+      if (freq == "annual" && what == "total") {
+        return_data <- filtered_data %>%
+          filter(cmd_code == "S") %>% 
+          group_by(ref_year, reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, cmd_desc) %>% 
+          summarise(primary_value = sum(primary_value), .groups = "drop") %>% 
+          mutate(period = as.character(ref_year)) %>% 
+          select(-ref_year)
+        
+      } else if (freq == "annual" && what == "commodities") {
+        return_data <- filtered_data %>%
+          filter(cmd_code != "S") %>% 
+          group_by(ref_year, reporter_iso, reporter_desc, flow_code, flow_desc, cmd_code, cmd_desc) %>% 
+          summarise(primary_value = sum(primary_value), .groups = "drop") %>% 
+          mutate(period = as.character(ref_year)) %>% 
+          select(-ref_year)
+        
+      } else if (freq == "quarterly" && what == "total") {
+        return_data <- filtered_data %>% 
+          filter(cmd_code == "S") %>% 
+          mutate(period = ref_period_id) %>% 
+          select(-ref_period_id)
+        
+      } else if (freq == "quarterly" && what == "commodities") {
+        return_data <- filtered_data %>% 
+          filter(cmd_code != "S")%>% 
+          mutate(period = ref_period_id) %>% 
+          select(-ref_period_id)
+        
+      } else {
+        stop("Invalid combination of freq and what.")
+      }
+      
+      return(return_data)
+    }
+    
+    serv_exp_imp_balance <- function(serv_data) {
+      
+      serv_data %>% 
+        select(-c(flow_code)) %>% 
+        relocate(period) %>% 
+        pivot_wider(names_from = flow_desc, values_from = primary_value) %>% 
+        relocate(Exports, Imports, .after = cmd_desc) %>% 
+        mutate(`Trade Balance` = Exports-Imports) %>% 
+        pivot_longer(cols = Exports:`Trade Balance`, names_to = "flow_desc", values_to = "primary_value")
+      
+    }
+    
+    ##line chart
+    ## time series for services export, import and trade balance
+    # render UI
+    output$service_line_chart <- renderUI({
+      
+     box(
+        id = "service_line_box",
+        title = HTML("<strong>Service Aggregate Series</strong>"),
+        width = 12, 
+        elevation = 4,
+        type = "tabs",
+        collapsible = TRUE,
+        maximizable = TRUE,
+        status = "primary",
+        # services export, import and trade balance
+        fluidRow(
+          column(
+            width = 6,
+            pickerInput(
+              inputId = "select_serv_aggr",
+              label = NULL,
+              width = "150px",
+              choices = c("Annual", "Quarterly"),
+              selected = "Annual",
+              options = list(`style` = "btn-default btn-sm")
+            )
+          )
+        ),
+        highchartOutput(outputId = "service_line_output", height = "550px"),
+        dataTableOutput(outputId = "service_table", height = "250px")
+     )
+    })
     
     
+    output$service_line_output <- renderHighchart({
+      req(input$select_serv_aggr)
+      # data for chart
+      data <- service_data_summariser(trade_data_rv$trade_service_data, freq = tolower(input$select_serv_aggr))
+      
+      # calculate necessary columns
+      serv_exp_imp_bal_data <- serv_exp_imp_balance(data)
+      
+      hchart(serv_exp_imp_bal_data, type = "line", 
+             hcaes(x = period, y = primary_value, group = flow_desc),
+             connectNulls = TRUE,
+             visible = c(TRUE, TRUE, FALSE)
+             ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "Total Trade Value (Billion USD)", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "B",
+          valuePrefix = "$",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
     
-    
-    
+    # data table 
+    output$service_table <- renderDataTable({
+      
+      data <- service_data_summariser(trade_data_rv$trade_service_data, freq = tolower(input$select_serv_aggr))
+      
+      # calculate necessary columns
+      serv_exp_imp_bal_data <- serv_exp_imp_balance(data) %>%
+        select(period, reporter_desc, flow_desc, primary_value) %>% 
+        mutate(primary_value = paste0("$",round(primary_value, 2),"B")) %>% 
+        pivot_wider(names_from = flow_desc, values_from = primary_value) %>% 
+        rename("Period" = period, 
+               "Country" = reporter_desc)
+      
+      datatable(
+        serv_exp_imp_bal_data,
+        rownames = FALSE,
+        extensions = "Buttons",
+        options = list(
+          pageLength = 5,
+          paging = TRUE,
+          dom = "tp"
+        ),
+        caption = htmltools::tags$caption(
+          style = 'caption-side: top; text-align: left;',
+          'Export-Import Balance of Services'
+        )
+      )
+    })
     
     ###----------------------------------------------------------###
     ### ----------------- Commodity Analysis page ---------------###
@@ -2460,9 +2783,12 @@ server <- function(input, output) {
     
     ## WHAT DO I NEED?
     # trade data both services and goods
-    #  
-    
-    
+    # service choices
+    serv_commod_choices <- reactive({
+      choices <- unique(trade_data_rv$trade_service_data$cmd_desc)
+      filtered_choices <- choices[!choices %in% c("Other services", "Memo item: Commercial services")]
+      return(filtered_choices)
+    })
     
     
     # function to summarised based on the selection of frequency (monthly, quarterly, annual)
