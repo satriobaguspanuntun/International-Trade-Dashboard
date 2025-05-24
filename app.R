@@ -28,6 +28,13 @@ options(scipen = 999)
 hs_concord <- readRDS("~/international-Trade-Dashboard/data/hs_concord.rds")
 serv_concord <- readRDS("~/international-Trade-Dashboard/data/serv_concord.rds")
 
+# country code
+countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
+all_countrycode <- readRDS("~/international-Trade-Dashboard/data/all_countrycode.rds")
+
+# world map data
+world_sf <- read_sf("~/international-Trade-Dashboard/data/world-administrative-boundaries.geojson")
+
 # cleaning and harmonising HS nomenclature
 clean_hs2 <- function(hs) {
   hs <- hs %>% filter(parent == "TOTAL")
@@ -67,15 +74,14 @@ clean_hs2 <- function(hs) {
 
 clean_hs_commod <- clean_hs2(hs_concord)
 
-# world map data
-world_sf <- read_sf("~/international-Trade-Dashboard/data/world-administrative-boundaries.geojson")
+# services concordance
+service_commod <- sql_service_concordance(conn)
+
+# combined hs + services concordances
+combined_concord <- clean_hs_commod %>% select(id, text) %>% bind_rows(service_commod)
 
 # fetch year query
 year_range_table <- sql_year_range(conn)
-
-# country code
-countrycode <- readRDS("~/international-Trade-Dashboard/data/countrycode.rds")
-all_countrycode <- readRDS("~/international-Trade-Dashboard/data/all_countrycode.rds")
 
 # max year in database
 max_year_macro <- as.character(max(year_range_table[["macro_year"]]$year, na.rm = TRUE))
@@ -660,72 +666,196 @@ ui <- dashboardPage(
        tabName = "commodity_analysis",
        useBusyIndicators(),
        fluidRow(
-    #'      column(
-    #'        width = 4,
-    #'    div(
-    #'      style = "text-align: left; width: 100%; padding-bottom: 10px;",
-    #'      
-    #'      tags$head(
-    #'        tags$style(HTML("
-    #'   @keyframes slideFadeInText {
-    #'     from { opacity: 0; transform: translateY(20px); }
-    #'     to { opacity: 1; transform: translateY(0); }
-    #'   }
-    #' 
-    #'   @keyframes slideInLine {
-    #'     from { width: 0; opacity: 0; }
-    #'     to { width: 100%; opacity: 1; }
-    #'   }
-    #' 
-    #'   .title-container {
-    #'     display: inline-block;
-    #'     animation: slideFadeInText 0.8s ease-out forwards;
-    #'   }
-    #' 
-    #'   .title-content {
-    #'     display: flex;
-    #'     align-items: center;
-    #'     gap: 10px;
-    #'     font-size: 28px;
-    #'     font-weight: 700;
-    #'     color: #2c3e50;
-    #'     margin: 0;
-    #'   }
-    #' 
-    #'   .animated-hr {
-    #'     height: 4px;
-    #'     background: linear-gradient(to right, #2c3e50, #3498db);
-    #'     border: none;
-    #'     margin-top: 5px;
-    #'     animation: slideInLine 1s ease-out forwards;
-    #'     animation-delay: 0.4s;
-    #'     animation-fill-mode: both;
-    #'   }
-    #' 
-    #'   .header-icon {
-    #'     color: #3498db;
-    #'     font-size: 28px;
-    #'   }
-    #' "))
-    #'      ),
-    #'      
-    #'      div(
-    #'        class = "title-container",
-    #'        tags$div(
-    #'          class = "title-content",
-    #'          tags$i(class = "fas fa-chart-bar header-icon"),
-    #'          "Commodity Analysis"
-    #'        ),
-    #'        tags$hr(class = "animated-hr")
-    #'      )
-    #'    )
-    #'   ),
-      column(
-        width = 12,
-        tags$h1("Work in Progress...")
+         column(
+           width = 4,
+       div(
+         style = "text-align: left; width: 100%; padding-bottom: 10px;",
+
+         tags$head(
+           tags$style(HTML("
+      @keyframes slideFadeInText {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes slideInLine {
+        from { width: 0; opacity: 0; }
+        to { width: 100%; opacity: 1; }
+      }
+
+      .title-container {
+        display: inline-block;
+        animation: slideFadeInText 0.8s ease-out forwards;
+      }
+      
+      .animate-text{
+        animation: slideFadeInText 0.8 ease forwards;
+      }
+
+      .title-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+      }
+
+      .animated-hr {
+        height: 4px;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        border: none;
+        margin-top: 5px;
+        animation: slideInLine 1s ease-out forwards;
+        animation-delay: 0.4s;
+        animation-fill-mode: both;
+      }
+
+      .header-icon {
+        color: #3498db;
+        font-size: 28px;
+      }
+    "))
+         ),
+
+         div(
+           class = "title-container",
+           tags$div(
+             class = "title-content",
+             tags$i(class = "fas fa-chart-bar header-icon"),
+             "Commodity Analysis"
+           ),
+           tags$hr(class = "animated-hr")
+         )
+       )
       )
-     )
      ),
+     fluidRow(
+       tags$head(
+         tags$style(HTML("
+      .btn-light {background-color: #FAFDFF; 
+                  border-color: #070707;}
+                  
+      .flex-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      
+    "))
+       ),
+       
+       column(
+         width = 12,
+       
+       div(class = "flex-container",
+           div(style = "width: 250px;",
+               pickerInput(
+                 inputId = "select_country_commod",
+                 label = "Select country",
+                 choices = countrycode$iso.name.en,
+                 multiple = FALSE
+               )
+           ),
+           
+           div(style = "width: 250px;",
+               pickerInput(
+                 inputId = "select_exp_imp_commod",
+                 label = "Select Trade Type",
+                 choices = c("Export", "Import"),
+                 selected = "Export",
+                 multiple = FALSE
+               )
+           )
+       )
+      )
+     ),
+     tags$head(
+       tags$style(HTML("
+    @keyframes slideFadeInText {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInLine {
+      from { width: 0; opacity: 0; }
+        to { width: 100%; opacity: 1; }
+    }
+    
+    .commod-content-title {
+        display: inline-block;
+        margin: 0;
+      }
+
+    .animate-text {
+      animation: slideFadeInText 0.8s ease forwards;
+    }
+    
+    .animate-line {
+      height: 3px;
+      background-color: #007BFF;
+      border: none;
+      margin-top: 5px;
+      animation: slideInLine 1s ease-out forwards;
+      animation-delay: 0.4s;
+      animation-fill-mode: both;
+      width: fit-content;
+      max-width: 100%;
+      display: inline-block;
+    }
+  "))
+     ),
+     # help text
+     tags$div(id = "commod_analysis_help",
+              style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+              fluidRow(
+                column(
+                  width = 12,
+                  div(class = "commod-content-title",
+                  h3(class = "animate-text", "Commodity Analysis on Export/Import"),
+                  tags$hr(class = "animate-line")
+                  ),
+                  br(),
+                  h4(class = "animate-text","How to:"),
+                  tags$ol(
+                    class = "animate-text",
+                    tags$li("Search for either HS code or Services code and the commodity names in the search or filter box available in each column."),
+                    tags$li("Choose whether to show only the first 10 entries or the entire table."),
+                    tags$li("By default, the report shows Export data. You can switch to Import using the top selector."),
+                    tags$li("After selecting one or more rows, the report will automatically generate for the selected codes.")
+                  )
+                )
+              )
+     ),
+     tags$br(),
+     tags$div(id = "commod_concord_table",
+     fluidRow(
+       column(
+         width = 12,
+         # render HS codes and Services codes
+         dataTableOutput("concordance_codes"))
+     )
+    ),
+     # clear table selection
+    tags$div(id = "clear_commod_table",
+             fluidRow(
+               column(
+                 width = 12,
+                 div(style = "width: 250px;",
+                 actionBttn(inputId = "clear_hsserv_table",
+                            label = "Clear Selection",
+                            icon = icon("refresh"),
+                            style = "jelly")
+                 )
+               )
+             )
+            ),
+    # insert UI for first level of commodity analysis
+    tags$br(),
+    tags$div(id = "commod_value_line_table")
+    ),
      tabItem(
        tabName = "forecasting_trade",
        tags$h1("Work In Progress...")
@@ -742,7 +872,7 @@ ui <- dashboardPage(
   )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   #-----------------------------------------------------------------------------------#
   #--------------------------------# MACRO TAB SERVER #-------------------------------#
@@ -1220,11 +1350,18 @@ server <- function(input, output) {
       
     } else if (type == "services") {
       
-      start_serv <- as.integer(paste0(start, "01"))
-      end_serv <- as.integer(paste0(end, "04"))
+      start_serv <- paste0(start, "01")
+      end_serv <- paste0(end, "04")
       
       sql_service_query(conn, country, start_serv, end_serv, trade_flow) %>% 
         mutate(primary_value = as.numeric(primary_value))
+      
+    } else if (type == "monthly_goods") {
+      
+      start_month_goods <- paste0(start, "01")
+      end_month_goods <- paste0(end, "12")
+      
+      sql_monthly_export_query(conn, country, start_month_goods, end_month_goods, trade_flow)
       
     }
   }
@@ -2782,6 +2919,382 @@ server <- function(input, output) {
     ###----------------------------------------------------------###
     
     ## WHAT DO I NEED?
+    
+    ## PLAY AROUND WITH INSERT UI AND REMOVE UI 
+    # plan is for the user to pick which country, designated market (country grouping), 
+    # commodities and the year?
+    # then when press "OK" it will insert a UI page filled with Export and import chart
+    # and interesting key facts.
+    
+    # HS + services concordances table
+    output$concordance_codes <-  renderDataTable({
+      
+      datatable(combined_concord ,
+                 rownames = FALSE,
+                 filter = c("top"),
+                 extensions = 'Buttons',
+                 options = list(dom = 'Bfltp', 
+                                scrollX = TRUE,
+                                buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                                pageLength = 10,
+                                lengthMenu = list(c(10, -1), list('10', 'All')),
+                                searchHighlight = TRUE,
+                                search = list(regex = TRUE, caseInsensitive = FALSE )
+                   ),
+                 colnames = c("HS + Services Code", 'Classification')
+        )
+      })
+    concordance_code_proxy <- dataTableProxy("concordance_codes")
+    
+    # clear all selection
+    observeEvent(input$clear_hsserv_table,{
+      # add reset button(remove UI)
+      concordance_code_proxy  %>% selectRows(NULL)
+      
+    })
+    
+    observe({
+      print(input$concordance_codes_rows_selected)
+    })
+    
+    
+    # build data -----------------
+    # set reactivevalues to store inputs 
+    rv_commod_analysis <- reactiveValues()
+    
+    observe({
+
+      # ensure the input exist before pulling any data
+      req(input$select_country_commod, input$select_exp_imp_commod)
+      
+      # storing reactive parameters
+      rv_commod_analysis$country_commod <- input$select_country_commod # selected country
+      rv_commod_analysis$exp_imp_commod <- input$select_exp_imp_commod # export or import
+      rv_commod_analysis$commod_table_filter <- combined_concord[input$concordance_codes_rows_selected, ] # filtered hs+serv table
+      
+      
+      # parameters (use maximum year available in the database)
+      max_year <- max_year_trade
+      min_year <- min_year_trade
+
+      # anuual trade data
+      export_max <- get_trade_data(conn = conn,
+                                   country = input$select_country_commod,
+                                   start = min_year,
+                                   end = max_year,
+                                   trade_flow = "X",
+                                   type = "goods")
+
+      import_max <- get_trade_data(conn = conn,
+                                   country = input$select_country_commod,
+                                   start = min_year_trade,
+                                   end = max_year_trade,
+                                   trade_flow = "M",
+                                   type = "goods")
+
+      rv_commod_analysis$trade_commod_annual_goods_data <- do.call(rbind, list(export_max, import_max)) %>% mutate(trade_type = "goods")
+
+
+      # monthly trade data
+      monthly_export <- get_trade_data(conn = conn,
+                                        country = input$select_country_commod,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "X",
+                                        type = "monthly_goods")
+      
+      monthly_import<- get_trade_data(conn = conn,
+                                        country = input$select_country_commod,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "M",
+                                        type = "monthly_goods")
+      
+      rv_commod_analysis$trade_commod_monthly_data <- do.call(rbind, list(monthly_export, monthly_import)) %>%
+        mutate(trade_type = "goods") %>% 
+        # harmonising hs codes, due to different HS revision and versions 
+        select(-cmd_desc) %>% 
+        inner_join(combined_concord, by = join_by("cmd_code" == "id")) %>% 
+        rename("cmd_desc" = text)
+      
+      
+      # serivce data periods ranges from 2005Q1 up to 2024Q4, matched the date range with
+      export_max_serv <- get_trade_data(conn = conn,
+                                        country = input$select_country_commod,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "X",
+                                        type = "services")
+
+      import_max_serv <- get_trade_data(conn = conn,
+                                        country = input$select_country_commod,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "M",
+                                        type = "services")
+
+      rv_commod_analysis$trade_service_commod_data <- do.call(rbind, list(export_max_serv, import_max_serv)) %>% mutate(trade_type = "services")
+
+    })
+    
+    # function to summarised based on the selection of frequency (monthly, quarterly, annual)
+    monthly_trade_summariser_func <- function(data, freq) {
+      
+      trade_data <- data %>% 
+        mutate(month = substr(period, 5, 6),
+               quarter = paste0("Q", quarter(ymd(paste0(as.character(ref_year),"-", month, "-", "01"))), " ", ref_year),
+               ref_quarter = as.numeric(paste0(ref_year, quarter(ymd(paste0(as.character(ref_year),"-", month, "-", "01"))))),
+               period = paste0(as.character(ref_year), "-", month))
+      
+      trade_output_summarise <- switch(freq,
+                                       # monthly
+                                       "Monthly" = {x <- trade_data %>% 
+                                         select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                cmd_code, cmd_desc, primary_value) %>% 
+                                         rename("total_trade_value" = primary_value)},
+                                       
+                                       # quarterly
+                                       "Quarterly" = {
+                                         x <- trade_data %>% 
+                                           group_by(quarter, ref_quarter, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                    cmd_code, cmd_desc) %>% 
+                                           summarise(total_trade_value = sum(primary_value)) %>% 
+                                           ungroup() %>% 
+                                           mutate(period = quarter) %>% 
+                                           arrange(ref_quarter) %>% 
+                                           select(-quarter)
+                                       },
+                                       
+                                       # annual
+                                       "Annual" = {
+                                         x <- trade_data %>% 
+                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                    cmd_code, cmd_desc) %>% 
+                                           summarise(total_trade_value = sum(primary_value)) %>% 
+                                           ungroup() %>% 
+                                           mutate(period = as.character(ref_year)) %>% 
+                                           select(-ref_year)
+                                       })
+      
+      return(trade_output_summarise)
+    }
+    
+
+    service_trade_summariser_func <- function(data, freq) {
+      
+      trade_output_summarise <- switch(freq,
+                                       
+                                       # quarterly
+                                       "Quarterly" = {
+                                         x <- data %>% 
+                                           select(ref_period_id, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                  cmd_code, cmd_desc, primary_value) %>% 
+                                           rename("total_trade_value" = primary_value,
+                                                  "period" = ref_period_id)
+                                       },
+                                       
+                                       # annual
+                                       "Annual" = {
+                                         x <- data %>% 
+                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
+                                                    cmd_code, cmd_desc) %>% 
+                                           summarise(total_trade_value = sum(primary_value)) %>% 
+                                           ungroup() %>% 
+                                           mutate(period = as.character(ref_year)) %>% 
+                                           select(-ref_year)
+                                       })
+      
+      return(trade_output_summarise)
+    }
+    
+    
+    # build data set
+    commod_data_set <- reactive({
+      req(
+        rv_commod_analysis$commod_table_filter,
+        length(rv_commod_analysis$commod_table_filter) > 0,
+        rv_commod_analysis$trade_commod_monthly_data,
+        rv_commod_analysis$trade_service_commod_data
+      )
+      
+      bind_data <- rv_commod_analysis$trade_commod_monthly_data %>% 
+        arrange(ref_year) %>% 
+        mutate(ref_period_id = as.character(ref_period_id),
+               ref_month = as.character(ref_month),
+               period = as.character(period),
+               primary_value = primary_value/1e6) %>% 
+        bind_rows(rv_commod_analysis$trade_service_commod_data) %>% 
+        mutate(flow_desc = str_replace(flow_desc, "s", ""))
+      
+      
+      filtered_data <-  bind_data %>%  filter(flow_desc == rv_commod_analysis$exp_imp_commod, 
+               cmd_code %in% c(rv_commod_analysis$commod_table_filter$id))
+      
+    })
+    
+    # check if services exist in the data
+    observe({
+      rv_commod_analysis$check_services_code <- unique(commod_data_set()$trade_type)
+      })
+    
+    ## line chart for selected codes
+    output$commod_line_val_chart <- renderHighchart({
+      req(commod_data_set(),input$select_commod_val_aggr, rv_commod_analysis$check_services_code)
+      
+      # data for chart
+      if (length(rv_commod_analysis$check_services_code) > 1) {
+        data_goods <- commod_data_set() %>% filter(trade_type == "goods")
+        data_serv <- commod_data_set() %>% filter(trade_type == "services")
+        
+        data_goods_final <- monthly_trade_summariser_func(data_goods, input$select_commod_val_aggr)
+        data_serv_final <- service_trade_summariser_func(data_serv, input$select_commod_val_aggr)
+        
+        data_final <- data_goods_final %>% bind_rows(data_serv_final) %>% 
+          mutate(period = trimws(period)) %>% 
+          arrange(cmd_desc)
+        
+      } else if (rv_commod_analysis$check_services_code %in% c("goods")) {
+        
+        data_final <- monthly_trade_summariser_func(commod_data_set(), input$select_commod_val_aggr)  %>% 
+          mutate(period = trimws(period)) %>% 
+          arrange(cmd_desc)
+        
+      } else {
+        
+        data_final <- service_trade_summariser_func(commod_data_set(), input$select_commod_val_aggr) %>% 
+          mutate(period = trimws(period)) %>% 
+          arrange(cmd_desc)
+        
+      }
+      
+      hchart(data_final, type = "line", 
+             hcaes(x = period, y = total_trade_value, group = cmd_desc),
+             connectNulls = TRUE
+      ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "Total Trade Value (Million USD)", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "M",
+          valuePrefix = "$",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
+    
+    # export name 
+    output$title_commod_val <- renderText({
+      req(rv_commod_analysis$exp_imp_commod)
+      paste0(rv_commod_analysis$exp_imp_commod, " for selected commodities")
+    })
+
+    ## Insert UI
+    insertUI(
+      selector = "#commod_value_line_table",
+      ui = 
+        div(id = "commod_value_line_table_add",
+            style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+            tags$br(),
+            fluidRow(
+              div(
+                style = "text-align: center; 
+                         font-size: 28px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 15px;
+                         margin-top: -20px;
+                         margin-left: 5px",
+                textOutput("title_commod_val")
+              ),
+              column(
+                width = 12,
+                div(
+                  style = "padding: 3px; margin-left: 18px; margin-bottom: 3px;",
+                  pickerInput(
+                    inputId = "select_commod_val_aggr",
+                    label = NULL,
+                    width = "150px",
+                    choices = c("Monthly","Quarterly", "Annual"),
+                    selected = "Annual",
+                    options = list(`style` = "btn-default btn-sm")
+                  )
+              )
+            ),
+            highchartOutput("commod_line_val_chart")
+        )
+      )
+    )
+    
+    ## update choices 
+    observe({
+      req(rv_commod_analysis$check_services_code)
+      
+      check_commod_codes <- rv_commod_analysis$check_services_code
+      
+      if(length(check_commod_codes) > 1) { 
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_aggr",
+                          choices = c("Quarterly", "Annual"))
+        
+      } else if (check_commod_codes %in% c("goods")){
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_aggr",
+                          choices = c("Monthly","Quarterly", "Annual"))
+        
+      } else {
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_aggr",
+                          choices = c("Quarterly", "Annual"))
+        
+      }
+    })
+    
+    
+    ## summary statistics table or growth rate
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # trade data both services and goods
     # service choices
     serv_commod_choices <- reactive({
@@ -2791,41 +3304,7 @@ server <- function(input, output) {
     })
     
     
-    # function to summarised based on the selection of frequency (monthly, quarterly, annual)
-    monthly_trade_summariser_func <- function(data, freq) {
-      
-      trade_data <- data %>% 
-        mutate(month = substr(period, 5, 6),
-               quarter = paste0("Q", quarter(paste0(as.character(ref_year),"-", month, "-", "01"))),
-               period = paste0(as.character(ref_year), "-", month),
-               ref_quarter = paste0(as.character(ref_year), "-", quarter))
-      
-      trade_output_summarise <- switch(freq,
-                                       # monthly
-                                       "monthly" = {x <- trade_data %>% 
-                                         select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                cmd_code, cmd_desc, primary_value) %>% 
-                                         rename("total_trade_value" = primary_value)},
-                                       
-                                       # quarterly
-                                       "quarterly" = {
-                                         x <- trade_data %>% 
-                                           group_by(quarter, ref_quarter, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                    cmd_code, cmd_desc) %>% 
-                                           summarise(total_trade_value = sum(primary_value))
-                                       },
-                                       
-                                       # annual
-                                       "annual" = {
-                                         x <- trade_data %>% 
-                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                    cmd_code, cmd_desc) %>% 
-                                           summarise(total_trade_value = sum(primary_value))
-                                       })
-      
-      return(trade_output_summarise)
-    }
-    
+
     
     ###----------------------------------------------------------###
     ### ---------------- TRADE-FORECASTING page ------------_----###
