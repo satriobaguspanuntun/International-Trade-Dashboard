@@ -3157,7 +3157,7 @@ server <- function(input, output, session) {
         
         data_final <- monthly_trade_summariser_func(commod_data_set(), input$select_commod_val_aggr)  %>% 
           mutate(period = trimws(period)) %>% 
-          arrange(cmd_desc)
+          arrange(cmd_desc) 
         
       } else {
         
@@ -3277,23 +3277,34 @@ server <- function(input, output, session) {
     })
     
     
-    ## summary statistics table or growth rate
+    ## growth rate & share % of total line chart
 
+    # growth rate data
+    
+    # share of % against the total data
+    
+    # growth rate chart
+    
+    # share of % against the total chart
+    
+    # insert UI
     
     
+    ## summary statistics table and chart data table
     
+    # compiling necessary dataset for stats summary
     
+    # datatable for summary
     
+    # gather chart data 
     
+    # datatable for chart data
     
+    # insert UI
     
+    ## Implement the selectised input for further analysis
     
-    
-    
-    
-    
-    
-    
+    # inser UI
     
     # trade data both services and goods
     # service choices
