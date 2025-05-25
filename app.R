@@ -854,7 +854,9 @@ ui <- dashboardPage(
             ),
     # insert UI for first level of commodity analysis
     tags$br(),
-    tags$div(id = "commod_value_line_table")
+    tags$div(id = "commod_value_line_table"),
+    tags$br(),
+    tags$div(id = "commod_value_growth_share")
     ),
      tabItem(
        tabName = "forecasting_trade",
@@ -2950,14 +2952,8 @@ server <- function(input, output, session) {
     observeEvent(input$clear_hsserv_table,{
       # add reset button(remove UI)
       concordance_code_proxy  %>% selectRows(NULL)
-      
     })
-    
-    observe({
-      print(input$concordance_codes_rows_selected)
-    })
-    
-    
+
     # build data -----------------
     # set reactivevalues to store inputs 
     rv_commod_analysis <- reactiveValues()
@@ -3033,74 +3029,97 @@ server <- function(input, output, session) {
                                         trade_flow = "M",
                                         type = "services")
 
-      rv_commod_analysis$trade_service_commod_data <- do.call(rbind, list(export_max_serv, import_max_serv)) %>% mutate(trade_type = "services")
+      rv_commod_analysis$trade_service_commod_data <- do.call(rbind, list(export_max_serv, import_max_serv)) %>%
+        mutate(trade_type = "services") %>% 
+        filter(!cmd_code %in% c("S"))
 
     })
     
     # function to summarised based on the selection of frequency (monthly, quarterly, annual)
-    monthly_trade_summariser_func <- function(data, freq) {
+    monthly_trade_summariser_func <- function(data, freq, aggregate_by_code = TRUE) {
       
+      # Preprocess trade data
       trade_data <- data %>% 
-        mutate(month = substr(period, 5, 6),
-               quarter = paste0("Q", quarter(ymd(paste0(as.character(ref_year),"-", month, "-", "01"))), " ", ref_year),
-               ref_quarter = as.numeric(paste0(ref_year, quarter(ymd(paste0(as.character(ref_year),"-", month, "-", "01"))))),
-               period = paste0(as.character(ref_year), "-", month))
+        mutate(
+          month = substr(period, 5, 6),
+          date_str = paste0(ref_year, "-", month, "-01"),
+          quarter = paste0("Q", lubridate::quarter(lubridate::ymd(date_str)), " ", ref_year),
+          ref_quarter = as.numeric(paste0(ref_year, lubridate::quarter(lubridate::ymd(date_str)))),
+          period = paste0(ref_year, "-", month)
+        )
       
+      # Base grouping columns
+      group_cols <- c("reporter_iso", "reporter_desc", "partner_iso", "flow_code", "flow_desc", "trade_type")
+      if (aggregate_by_code) {
+        group_cols <- c(group_cols, "cmd_code", "cmd_desc")
+      }
+      
+      # Apply summary logic based on frequency
       trade_output_summarise <- switch(freq,
-                                       # monthly
-                                       "Monthly" = {x <- trade_data %>% 
-                                         select(period, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                cmd_code, cmd_desc, primary_value) %>% 
-                                         rename("total_trade_value" = primary_value)},
-                                       
-                                       # quarterly
-                                       "Quarterly" = {
-                                         x <- trade_data %>% 
-                                           group_by(quarter, ref_quarter, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                    cmd_code, cmd_desc) %>% 
-                                           summarise(total_trade_value = sum(primary_value)) %>% 
-                                           ungroup() %>% 
-                                           mutate(period = quarter) %>% 
-                                           arrange(ref_quarter) %>% 
-                                           select(-quarter)
+                                       "Monthly" = {
+                                         trade_data %>%
+                                           group_by(across(all_of(c("period", group_cols)))) %>%
+                                           summarise(total_trade_value = sum(primary_value), .groups = "drop") %>% 
+                                           relocate(period) %>% 
+                                           mutate(period = trimws(period))
                                        },
-                                       
-                                       # annual
+                                       "Quarterly" = {
+                                         trade_data %>%
+                                           group_by(across(all_of(c("quarter", "ref_quarter", group_cols)))) %>%
+                                           summarise(total_trade_value = sum(primary_value), .groups = "drop") %>%
+                                           mutate(period = quarter,
+                                                  period = trimws(period)) %>%
+                                           arrange(ref_quarter) %>%
+                                           select(-quarter) %>% 
+                                           relocate(period)
+                                       },
                                        "Annual" = {
-                                         x <- trade_data %>% 
-                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                    cmd_code, cmd_desc) %>% 
-                                           summarise(total_trade_value = sum(primary_value)) %>% 
-                                           ungroup() %>% 
-                                           mutate(period = as.character(ref_year)) %>% 
-                                           select(-ref_year)
-                                       })
+                                         trade_data %>%
+                                           group_by(across(all_of(c("ref_year", group_cols)))) %>%
+                                           summarise(total_trade_value = sum(primary_value), .groups = "drop") %>%
+                                           arrange(ref_year) %>% 
+                                           mutate(period = as.character(ref_year),
+                                                  period = trimws(period)) %>%
+                                           select(-ref_year) %>% 
+                                           relocate(period)
+                                       },
+                                       stop("Invalid frequency. Choose from 'Monthly', 'Quarterly', or 'Annual'.")
+      )
       
       return(trade_output_summarise)
     }
     
 
-    service_trade_summariser_func <- function(data, freq) {
+    service_trade_summariser_func <- function(data, freq, aggregate_by_code = FALSE) {
+      
+      # Base grouping columns
+      group_cols <- c("reporter_iso", "reporter_desc", "partner_iso", "flow_code", "flow_desc", "trade_type")
+      if (aggregate_by_code) {
+        group_cols <- c(group_cols, "cmd_code", "cmd_desc")
+      }
       
       trade_output_summarise <- switch(freq,
-                                       
                                        # quarterly
                                        "Quarterly" = {
-                                         x <- data %>% 
-                                           select(ref_period_id, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                  cmd_code, cmd_desc, primary_value) %>% 
-                                           rename("total_trade_value" = primary_value,
-                                                  "period" = ref_period_id)
+                                         data %>%
+                                           group_by(!!!syms(c("ref_period_id", group_cols))) %>%
+                                           summarise(total_trade_value = sum(primary_value), .groups = "drop") %>% 
+                                           rename("period" = ref_period_id)  %>% 
+                                           mutate(period = trimws(period),
+                                                  ref_period = as.numeric(paste0(substr(period, 4, 7), substr(period, 2,2)))) %>% 
+                                           arrange(ref_period) %>% 
+                                           select(-ref_period)
+                                         
                                        },
-                                       
                                        # annual
                                        "Annual" = {
-                                         x <- data %>% 
-                                           group_by(ref_year, reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, 
-                                                    cmd_code, cmd_desc) %>% 
+                                         data %>% 
+                                           group_by(!!!syms(c("ref_year", group_cols))) %>% 
                                            summarise(total_trade_value = sum(primary_value)) %>% 
                                            ungroup() %>% 
-                                           mutate(period = as.character(ref_year)) %>% 
+                                           mutate(period = as.character(ref_year),
+                                                  period = trimws(period)) %>% 
+                                           relocate(period) %>% 
                                            select(-ref_year)
                                        })
       
@@ -3109,7 +3128,7 @@ server <- function(input, output, session) {
     
     
     # build data set
-    commod_data_set <- reactive({
+    observe({
       req(
         rv_commod_analysis$commod_table_filter,
         length(rv_commod_analysis$commod_table_filter) > 0,
@@ -3117,7 +3136,7 @@ server <- function(input, output, session) {
         rv_commod_analysis$trade_service_commod_data
       )
       
-      bind_data <- rv_commod_analysis$trade_commod_monthly_data %>% 
+      rv_commod_analysis$bind_data <- rv_commod_analysis$trade_commod_monthly_data %>% 
         arrange(ref_year) %>% 
         mutate(ref_period_id = as.character(ref_period_id),
                ref_month = as.character(ref_month),
@@ -3126,48 +3145,53 @@ server <- function(input, output, session) {
         bind_rows(rv_commod_analysis$trade_service_commod_data) %>% 
         mutate(flow_desc = str_replace(flow_desc, "s", ""))
       
-      
-      filtered_data <-  bind_data %>%  filter(flow_desc == rv_commod_analysis$exp_imp_commod, 
+      rv_commod_analysis$commod_data_set <-  rv_commod_analysis$bind_data %>%
+        filter(flow_desc == rv_commod_analysis$exp_imp_commod, 
                cmd_code %in% c(rv_commod_analysis$commod_table_filter$id))
       
     })
     
     # check if services exist in the data
     observe({
-      rv_commod_analysis$check_services_code <- unique(commod_data_set()$trade_type)
+      rv_commod_analysis$check_services_code <- unique(rv_commod_analysis$commod_data_set$trade_type)
       })
+    
+    observe({print(input$select_commod_val_agg)})
+    
+    # data processing for selected commodities
+    data_for_commod_live_val_chart <- reactive({
+      req(rv_commod_analysis$commod_data_set , input$select_commod_val_aggr, rv_commod_analysis$check_services_code)
+      
+      # data for chart 
+      ########## FUNCTIONISED THIS BAD BOY 
+      if (length(rv_commod_analysis$check_services_code) > 1) {
+        data_goods <- rv_commod_analysis$commod_data_set  %>% filter(trade_type == "goods")
+        data_serv <- rv_commod_analysis$commod_data_set  %>% filter(trade_type == "services")
+        
+        data_goods_final <- monthly_trade_summariser_func(data_goods, input$select_commod_val_aggr, aggregate_by_code = TRUE)
+        data_serv_final <- service_trade_summariser_func(data_serv, input$select_commod_val_aggr, aggregate_by_code = TRUE)
+        
+        data_final <- data_goods_final %>% 
+          bind_rows(data_serv_final) %>% 
+          mutate(period = trimws(period))
+        
+      } else if (rv_commod_analysis$check_services_code %in% c("goods")) {
+
+        data_final <- monthly_trade_summariser_func(rv_commod_analysis$commod_data_set, input$select_commod_val_aggr, aggregate_by_code = TRUE)
+        
+      } else {
+
+        data_final <- service_trade_summariser_func(rv_commod_analysis$commod_data_set, input$select_commod_val_aggr, aggregate_by_code = TRUE)
+        
+      }
+    })
+    
     
     ## line chart for selected codes
     output$commod_line_val_chart <- renderHighchart({
-      req(commod_data_set(),input$select_commod_val_aggr, rv_commod_analysis$check_services_code)
+      req(data_for_commod_live_val_chart(), input$select_commod_val_aggr)
       
-      # data for chart
-      if (length(rv_commod_analysis$check_services_code) > 1) {
-        data_goods <- commod_data_set() %>% filter(trade_type == "goods")
-        data_serv <- commod_data_set() %>% filter(trade_type == "services")
-        
-        data_goods_final <- monthly_trade_summariser_func(data_goods, input$select_commod_val_aggr)
-        data_serv_final <- service_trade_summariser_func(data_serv, input$select_commod_val_aggr)
-        
-        data_final <- data_goods_final %>% bind_rows(data_serv_final) %>% 
-          mutate(period = trimws(period)) %>% 
-          arrange(cmd_desc)
-        
-      } else if (rv_commod_analysis$check_services_code %in% c("goods")) {
-        
-        data_final <- monthly_trade_summariser_func(commod_data_set(), input$select_commod_val_aggr)  %>% 
-          mutate(period = trimws(period)) %>% 
-          arrange(cmd_desc) 
-        
-      } else {
-        
-        data_final <- service_trade_summariser_func(commod_data_set(), input$select_commod_val_aggr) %>% 
-          mutate(period = trimws(period)) %>% 
-          arrange(cmd_desc)
-        
-      }
-      
-      hchart(data_final, type = "line", 
+      hchart(data_for_commod_live_val_chart(), type = "line", 
              hcaes(x = period, y = total_trade_value, group = cmd_desc),
              connectNulls = TRUE
       ) %>% 
@@ -3210,7 +3234,7 @@ server <- function(input, output, session) {
       req(rv_commod_analysis$exp_imp_commod)
       paste0(rv_commod_analysis$exp_imp_commod, " for selected commodities")
     })
-
+    
     ## Insert UI
     insertUI(
       selector = "#commod_value_line_table",
@@ -3239,7 +3263,7 @@ server <- function(input, output, session) {
                     label = NULL,
                     width = "150px",
                     choices = c("Monthly","Quarterly", "Annual"),
-                    selected = "Annual",
+                    selected = "Monthly",
                     options = list(`style` = "btn-default btn-sm")
                   )
               )
@@ -3248,7 +3272,259 @@ server <- function(input, output, session) {
         )
       )
     )
+      
+    calc_growth_share_commod <- function(select_input_commod, what, trade_data_commod, row_filter_vector){
+      
+      # find total export/import by frequency
+      total_data_goods <- trade_data_commod %>%
+        filter(trade_type == "goods" & flow_desc == what)
+      
+      total_data_services <-  trade_data_commod %>%
+        filter(trade_type == "services" & flow_desc == what)
+      
+      data_goods_fil <-  trade_data_commod  %>%
+        filter(trade_type == "goods" & flow_desc == what & cmd_code %in% c(row_filter_vector))
+      
+      data_services_fil <-  trade_data_commod  %>%
+        filter(trade_type == "services" & flow_desc == what & cmd_code %in% c(row_filter_vector))
+      
+      total_data_goods_out <- monthly_trade_summariser_func(total_data_goods ,
+                                                            freq = select_input_commod,
+                                                            aggregate_by_code = FALSE) 
+      
+      total_data_services_out <- service_trade_summariser_func(total_data_services,
+                                                               freq = select_input_commod,
+                                                               aggregate_by_code = FALSE)
+      
+      total_data_goods_out_commod <- monthly_trade_summariser_func(data_goods_fil,
+                                                                   freq = select_input_commod,
+                                                                   aggregate_by_code = TRUE)
+      
+      total_data_services_out_commod <- service_trade_summariser_func(data_services_fil,
+                                                                      freq = select_input_commod,
+                                                                      aggregate_by_code = TRUE)
+      
+      data_final_total <- total_data_goods_out %>%
+        bind_rows(total_data_services_out) %>%
+        rename("total_trade_freq" = total_trade_value)
+      
+      data_final_commod <- total_data_goods_out_commod  %>%
+        bind_rows(total_data_services_out_commod)
+      
+      join_by_group <- c("reporter_iso", "reporter_desc", "partner_iso", "flow_code", "flow_desc", "trade_type")
+      
+      if (select_input_commod == "Quarterly") {
+        
+        join_by_group <- c("period", "ref_quarter", join_by_group)
+        
+      } else {
+        
+        join_by_group <- c("period", join_by_group)
+        
+      }
+      
+      data_final_total_commod <- data_final_commod %>%
+        inner_join(data_final_total, by = join_by(!!!syms(join_by_group))) %>% 
+        mutate(share_percent = (total_trade_value/total_trade_freq) * 100) %>% 
+        ungroup() %>% 
+        group_by(reporter_iso, reporter_desc, partner_iso, flow_code, flow_desc, trade_type, cmd_desc, cmd_code) %>% 
+        mutate(growth_rate = ((total_trade_value - lag(total_trade_value))/lag(total_trade_value)) * 100)
+      
+      return(data_final_total_commod)
+    }
     
+    
+    ## growth rate & share % of total line chart
+    # growth rate data & # gather chart data 
+    growth_commod_data <- reactive({
+      req(input$select_commod_val_growth, input$select_exp_imp_commod, rv_commod_analysis$bind_data, rv_commod_analysis$commod_table_filter$id)
+      calc_growth_share_commod(select_input_commod = input$select_commod_val_growth,
+                               what = input$select_exp_imp_commod,
+                               trade_data_commod = rv_commod_analysis$bind_data,
+                               row_filter_vector = rv_commod_analysis$commod_table_filter$i)
+    
+    })
+    
+    share_commod_data <- reactive({
+      req(input$select_commod_val_share, input$select_exp_imp_commod, rv_commod_analysis$bind_data, rv_commod_analysis$commod_table_filter$id)
+      calc_growth_share_commod(select_input_commod = input$select_commod_val_share,
+                               what = input$select_exp_imp_commod,
+                               trade_data_commod = rv_commod_analysis$bind_data,
+                               row_filter_vector = rv_commod_analysis$commod_table_filter$i)
+    })
+    
+    # growth rate chart
+    output$commod_line_val_growth <- renderHighchart({
+      req(growth_commod_data(),input$select_commod_val_growth)
+      
+      hchart(growth_commod_data(), type = "line", 
+             hcaes(x = period, y = growth_rate, group = cmd_desc),
+             connectNulls = TRUE
+      ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "% Percentage", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "%",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
+    
+    # growth rate chart
+    output$commod_line_val_share <- renderHighchart({
+      req(share_commod_data(),input$select_commod_val_share)
+      
+      hchart(share_commod_data(), type = "line", 
+             hcaes(x = period, y = share_percent, group = cmd_desc),
+             connectNulls = TRUE
+      ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "% Percentage", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "%",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
+    # share of % against the total chart
+    
+    ## summary statistics table and chart data table
+    
+    # compiling necessary dataset for stats summary
+    
+    # datatable for summary
+    
+    # gather chart data 
+    
+    # datatable for chart data
+    
+    # title for share rate
+    output$title_commod_val_share <- renderText({
+      req(rv_commod_analysis$exp_imp_commod)
+      paste0("Percentage share of total ", rv_commod_analysis$exp_imp_commod)
+    })
+    
+    # title for growth
+    output$title_commod_val_growth <- renderText({
+      req(rv_commod_analysis$exp_imp_commod)
+      paste0(rv_commod_analysis$exp_imp_commod, " growth rate")
+    })
+    
+    # insert UI
+    insertUI(
+      selector = "#commod_value_growth_share",
+      ui = 
+        div(id = "commod_value_growth_share_add",
+            fluidRow(
+              column(
+                width = 6,
+                div(
+                  style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                  div(
+                    style = "text-align: center;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-top: -10px;",
+                    textOutput("title_commod_val_growth")
+                  ),
+                div(
+                  style = "padding: 3px; margin-left: 18px; margin-bottom: 3px;",
+                  pickerInput(
+                    inputId = "select_commod_val_growth",
+                    label = NULL,
+                    width = "150px",
+                    choices = c("Monthly", "Quarterly", "Annual"),
+                    selected = "Monthly",
+                    options = list(`style` = "btn-default btn-sm")
+                  )
+                 ),
+                highchartOutput("commod_line_val_growth")
+                )
+              ),
+              
+              column(
+                width = 6,
+                div(
+                  style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                  div(
+                    style = "text-align: center;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-top: -10px;",
+                    textOutput("title_commod_val_share")
+                  ),
+                  div(
+                    style = "padding: 3px; margin-left: 18px; margin-bottom: 3px;",
+                    pickerInput(
+                      inputId = "select_commod_val_share",
+                      label = NULL,
+                      width = "150px",
+                      choices = c("Monthly", "Quarterly", "Annual"),
+                      selected = "Monthly",
+                      options = list(`style` = "btn-default btn-sm")
+                    )
+                  ),
+                  highchartOutput("commod_line_val_share")
+                )
+             )
+           )
+         )
+     )
+
     ## update choices 
     observe({
       req(rv_commod_analysis$check_services_code)
@@ -3261,10 +3537,27 @@ server <- function(input, output, session) {
                           inputId = "select_commod_val_aggr",
                           choices = c("Quarterly", "Annual"))
         
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_growth",
+                          choices = c("Quarterly", "Annual"))
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_share",
+                          choices = c("Quarterly", "Annual"))
+        
+        
       } else if (check_commod_codes %in% c("goods")){
         
         updatePickerInput(session = session, 
                           inputId = "select_commod_val_aggr",
+                          choices = c("Monthly","Quarterly", "Annual"))
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_growth",
+                          choices = c("Monthly","Quarterly", "Annual"))
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_share",
                           choices = c("Monthly","Quarterly", "Annual"))
         
       } else {
@@ -3273,34 +3566,16 @@ server <- function(input, output, session) {
                           inputId = "select_commod_val_aggr",
                           choices = c("Quarterly", "Annual"))
         
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_growth",
+                          choices = c("Quarterly", "Annual"))
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_val_share",
+                          choices = c("Quarterly", "Annual"))
+        
       }
     })
-    
-    
-    ## growth rate & share % of total line chart
-
-    # growth rate data
-    
-    # share of % against the total data
-    
-    # growth rate chart
-    
-    # share of % against the total chart
-    
-    # insert UI
-    
-    
-    ## summary statistics table and chart data table
-    
-    # compiling necessary dataset for stats summary
-    
-    # datatable for summary
-    
-    # gather chart data 
-    
-    # datatable for chart data
-    
-    # insert UI
     
     ## Implement the selectised input for further analysis
     

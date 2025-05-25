@@ -150,7 +150,8 @@ sql_service_query <- function(conn, country, start, end, trade_flow) {
                                        WHERE reporter_desc = '%s')
                         WHERE new_ref_year_month >= %s
                         AND new_ref_year_month <= %s
-                        AND flow_code = '%s'",
+                        AND flow_code = '%s'
+                        AND cmd_code NOT IN ('SOX', 'SPX1')",
                        country, start_numeric, end_numeric, trade_flow)
   
   data_sql_services <- dbGetQuery(conn, sql_query) %>% select(-c(new_ref_year_month))
@@ -162,7 +163,7 @@ sql_service_query <- function(conn, country, start, end, trade_flow) {
 sql_service_concordance <- function(conn) {
   
   # query
-  sql_query <- "SELECT DISTINCT cmd_code, cmd_desc FROM services WHERE cmd_code NOT IN ('SOX', 'SPX1')"
+  sql_query <- "SELECT DISTINCT cmd_code, cmd_desc FROM services WHERE cmd_code NOT IN ('SOX', 'SPX1', 'S')"
   
   # fetch data
   serv_concord_vector <- dbGetQuery(conn, sql_query) %>% 
