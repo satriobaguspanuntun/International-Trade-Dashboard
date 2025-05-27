@@ -130,7 +130,7 @@ ui <- dashboardPage(
     rightUi = tagList(
       userOutput("user")
     )  
-   ),
+  ),
   sidebar = dashboardSidebar(
     sidebarUserPanel(
       name = h6("Welcome Onboard!"),
@@ -313,72 +313,72 @@ ui <- dashboardPage(
               tags$hr(class = "animated-hr")
             )
           ),
-            column(
-              width = 3,
-              offset = 0,
-              
-              # Select country option
-              virtualSelectInput(
-                inputId = "macro_stats_country_input",
-                label = "Select Country",
-                choices = countrycode$iso.name.en,
-                search = TRUE,
-                width = "100%"
-                )
-            ),
-            column(
-              width = 3,
-              offset = 0,
-              
-              # Start date
-              airDatepickerInput(
-                inputId = "macro_stats_country_start_date",
-                label = "Start Year",
-                value = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
-                dateFormat = "yyyy",
-                view = "years",
-                minView = "years",
-                minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
-                maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
-                width = "100%"
-              )
-            ),
-            column(
-              width = 3,
-              offset = 0,
-              
-              # end date
-              airDatepickerInput(
-                inputId = "macro_stats_country_end_date",
-                label = "End Year",
-                value = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
-                dateFormat = "yyyy",
-                view = "years",
-                minView = "years",
-                minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
-                maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
-                width = "100%"
-              )
-            ),
+          column(
+            width = 3,
+            offset = 0,
             
-            # run action button
-            column(
-              width = 2,
-              offset = 0,
-              div(style = "margin-top:29px; margin-right:50px"),
-              actionBttn(
-                inputId = "run_macro_main_stats",
-                label = "Run Report",
-                style = "jelly",
-                color = "primary"
-              )
+            # Select country option
+            virtualSelectInput(
+              inputId = "macro_stats_country_input",
+              label = "Select Country",
+              choices = countrycode$iso.name.en,
+              search = TRUE,
+              width = "100%"
             )
+          ),
+          column(
+            width = 3,
+            offset = 0,
+            
+            # Start date
+            airDatepickerInput(
+              inputId = "macro_stats_country_start_date",
+              label = "Start Year",
+              value = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
+              dateFormat = "yyyy",
+              view = "years",
+              minView = "years",
+              minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
+              maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
+              width = "100%"
+            )
+          ),
+          column(
+            width = 3,
+            offset = 0,
+            
+            # end date
+            airDatepickerInput(
+              inputId = "macro_stats_country_end_date",
+              label = "End Year",
+              value = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
+              dateFormat = "yyyy",
+              view = "years",
+              minView = "years",
+              minDate = as.Date(paste0(min_year_macro, "-", "01", "-", "01")),
+              maxDate = as.Date(paste0(max_year_macro, "-", "01", "-", "01")),
+              width = "100%"
+            )
+          ),
+          
+          # run action button
+          column(
+            width = 2,
+            offset = 0,
+            div(style = "margin-top:29px; margin-right:50px"),
+            actionBttn(
+              inputId = "run_macro_main_stats",
+              label = "Run Report",
+              style = "jelly",
+              color = "primary"
+            )
+          )
         ),
         fluidRow(
           column(
             width = 3,
             valueBoxOutput(outputId = "macro_valuebox_inflation",width = 12)
-            ),
+          ),
           column(
             width = 3,
             valueBoxOutput(outputId = "macro_valuebox_gdp",width = 12)
@@ -411,8 +411,8 @@ ui <- dashboardPage(
                   selected = "GDP Nominal",
                   choices = c("GDP Nominal", "GDP Per Capita", "GDP Per Capita Growth", "Export to GDP")
                 )
-               )
-              ),
+              )
+            ),
             
             box(
               elevation = 4,
@@ -491,11 +491,11 @@ ui <- dashboardPage(
                                      selected = "output",
                                      justified = TRUE,
                                      status = "primary"),
-                  withSpinner(DTOutput("macro_data_table"),
-                              caption = "Please Wait",
-                              type = 8)
+                   withSpinner(DTOutput("macro_data_table"),
+                               caption = "Please Wait",
+                               type = 8)
                  )
-              )
+          )
         )
       ),
       tabItem(
@@ -579,35 +579,35 @@ ui <- dashboardPage(
                       class = "animated-h3"),
               tags$hr(class = "animated-hr")
             )
-        ),
-        column(
-          width = 4,
-           radioGroupButtons(
-            inputId = "trade_flow_input",
-            label = "Trade Flow Map",
-            choiceNames = c("Export", "Import"),
-            choiceValues = c("X","M"),
-            status = "success",
-            selected = "X",
-            justified = TRUE
+          ),
+          column(
+            width = 4,
+            radioGroupButtons(
+              inputId = "trade_flow_input",
+              label = "Trade Flow Map",
+              choiceNames = c("Export", "Import"),
+              choiceValues = c("X","M"),
+              status = "success",
+              selected = "X",
+              justified = TRUE
+            )
           )
-        )
-      ),
-      fluidRow(
-        column(
-          width = 12,
-          leafletOutput(outputId = "trade_map_leaflet", height = "400px")
-        )
-      ),
+        ),
+        fluidRow(
+          column(
+            width = 12,
+            leafletOutput(outputId = "trade_map_leaflet", height = "400px")
+          )
+        ),
         fluidRow(
           column(
             width = 3,
             uiOutput("two_way")
           ),
-            column(
-              width = 3,
-              uiOutput("trade_export")
-            ),
+          column(
+            width = 3,
+            uiOutput("trade_export")
+          ),
           column(
             width = 3,
             uiOutput("trade_import")
@@ -617,62 +617,62 @@ ui <- dashboardPage(
             uiOutput("trade_balance")
           )
         ),
-      tags$br(),
-      fluidRow(
-        column(
-          width = 12,
-          uiOutput("export_import_line_chart")
-        )
-      ),
-      fluidRow(
-        column(
-          width = 6,
-          uiOutput("top_export")
-        ), 
-        column(
-          width = 6,
-          uiOutput("top_import")
-        )
-       ),
-      fluidRow(
-        column(
-          width = 6,
-          uiOutput("top_export_commod")
+        tags$br(),
+        fluidRow(
+          column(
+            width = 12,
+            uiOutput("export_import_line_chart")
+          )
         ),
-        column(
-          width = 6,
-          uiOutput("top_import_commod")
-        )
-      ),
-      fluidRow(
-        column(
-          width = 12,
-          uiOutput("sankey_chart")
-        )
-      ),
-      # this bit below should be in a uioutput
-      uiOutput("service_title"),
-      fluidRow(
-        column(width = 6,
-               uiOutput("service_valuebox"),
-               uiOutput("top_export_import_service")
+        fluidRow(
+          column(
+            width = 6,
+            uiOutput("top_export")
+          ), 
+          column(
+            width = 6,
+            uiOutput("top_import")
+          )
         ),
-        column(width = 6,
-               uiOutput("service_line_chart")
+        fluidRow(
+          column(
+            width = 6,
+            uiOutput("top_export_commod")
+          ),
+          column(
+            width = 6,
+            uiOutput("top_import_commod")
+          )
+        ),
+        fluidRow(
+          column(
+            width = 12,
+            uiOutput("sankey_chart")
+          )
+        ),
+        # this bit below should be in a uioutput
+        uiOutput("service_title"),
+        fluidRow(
+          column(width = 6,
+                 uiOutput("service_valuebox"),
+                 uiOutput("top_export_import_service")
+          ),
+          column(width = 6,
+                 uiOutput("service_line_chart")
+          )
         )
-      )
-     ),
-     tabItem(
-       tabName = "commodity_analysis",
-       useBusyIndicators(),
-       fluidRow(
-         column(
-           width = 4,
-       div(
-         style = "text-align: left; width: 100%; padding-bottom: 10px;",
-
-         tags$head(
-           tags$style(HTML("
+      ),
+      tabItem(
+        tabName = "commodity_analysis",
+        useBusyIndicators(),
+        fluidRow(
+          column(
+            width = 4,
+            div(
+              style = "text-align: left; width: 100%; padding-bottom: 10px;",
+              
+              tags$head(
+                tags$style(HTML("
       @keyframes slideFadeInText {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -717,23 +717,23 @@ ui <- dashboardPage(
         font-size: 28px;
       }
     "))
-         ),
-
-         div(
-           class = "title-container",
-           tags$div(
-             class = "title-content",
-             tags$i(class = "fas fa-chart-bar header-icon"),
-             "Commodity Analysis"
-           ),
-           tags$hr(class = "animated-hr")
-         )
-       )
-      )
-     ),
-     fluidRow(
-       tags$head(
-         tags$style(HTML("
+              ),
+              
+              div(
+                class = "title-container",
+                tags$div(
+                  class = "title-content",
+                  tags$i(class = "fas fa-chart-bar header-icon"),
+                  "Commodity Analysis"
+                ),
+                tags$hr(class = "animated-hr")
+              )
+            )
+          )
+        ),
+        fluidRow(
+          tags$head(
+            tags$style(HTML("
       .btn-light {background-color: #FAFDFF; 
                   border-color: #070707;}
                   
@@ -745,35 +745,35 @@ ui <- dashboardPage(
       }
       
     "))
-       ),
-       
-       column(
-         width = 12,
-       
-       div(class = "flex-container",
-           div(style = "width: 250px;",
-               pickerInput(
-                 inputId = "select_country_commod",
-                 label = "Select country",
-                 choices = countrycode$iso.name.en,
-                 multiple = FALSE
-               )
-           ),
-           
-           div(style = "width: 250px;",
-               pickerInput(
-                 inputId = "select_exp_imp_commod",
-                 label = "Select Trade Type",
-                 choices = c("Export", "Import"),
-                 selected = "Export",
-                 multiple = FALSE
-               )
-           )
-       )
-      )
-     ),
-     tags$head(
-       tags$style(HTML("
+          ),
+          
+          column(
+            width = 12,
+            
+            div(class = "flex-container",
+                div(style = "width: 250px;",
+                    pickerInput(
+                      inputId = "select_country_commod",
+                      label = "Select country",
+                      choices = countrycode$iso.name.en,
+                      multiple = FALSE
+                    )
+                ),
+                
+                div(style = "width: 250px;",
+                    pickerInput(
+                      inputId = "select_exp_imp_commod",
+                      label = "Select Trade Type",
+                      choices = c("Export", "Import"),
+                      selected = "Export",
+                      multiple = FALSE
+                    )
+                )
+            )
+          )
+        ),
+        tags$head(
+          tags$style(HTML("
     @keyframes slideFadeInText {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -806,72 +806,77 @@ ui <- dashboardPage(
       display: inline-block;
     }
   "))
-     ),
-     # help text
-     tags$div(id = "commod_analysis_help",
-              style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
-              fluidRow(
-                column(
-                  width = 12,
-                  div(class = "commod-content-title",
-                  h3(class = "animate-text", "Commodity Analysis on Export/Import"),
-                  tags$hr(class = "animate-line")
-                  ),
-                  br(),
-                  h4(class = "animate-text","How to:"),
-                  tags$ol(
-                    class = "animate-text",
-                    tags$li("Search for either HS code or Services code and the commodity names in the search or filter box available in each column."),
-                    tags$li("Choose whether to show only the first 10 entries or the entire table."),
-                    tags$li("By default, the report shows Export data. You can switch to Import using the top selector."),
-                    tags$li("After selecting one or more rows, the report will automatically generate for the selected codes.")
-                  )
-                )
-              )
-     ),
-     tags$br(),
-     tags$div(id = "commod_concord_table",
-     fluidRow(
-       column(
-         width = 12,
-         # render HS codes and Services codes
-         dataTableOutput("concordance_codes"))
-     )
-    ),
-     # clear table selection
-    tags$div(id = "clear_commod_table",
-             fluidRow(
-               column(
-                 width = 12,
-                 div(style = "width: 250px;",
-                 actionBttn(inputId = "clear_hsserv_table",
-                            label = "Clear Selection",
-                            icon = icon("refresh"),
-                            style = "jelly")
+        ),
+        # help text
+        tags$div(id = "commod_analysis_help",
+                 style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                 fluidRow(
+                   column(
+                     width = 12,
+                     div(class = "commod-content-title",
+                         h3(class = "animate-text", "Commodity Analysis on Export/Import"),
+                         tags$hr(class = "animate-line")
+                     ),
+                     br(),
+                     h4(class = "animate-text","How to:"),
+                     tags$ol(
+                       class = "animate-text",
+                       tags$li("Search for either HS code or Services code and the commodity names in the search or filter box available in each column."),
+                       tags$li("Choose whether to show only the first 10 entries or the entire table."),
+                       tags$li("By default, the report shows Export data. You can switch to Import using the top selector."),
+                       tags$li("After selecting one or more rows, the report will automatically generate for the selected codes.")
+                     )
+                   )
                  )
-               )
-             )
-            ),
-    # insert UI for first level of commodity analysis
-    tags$br(),
-    tags$div(id = "commod_value_line_table"),
-    tags$br(),
-    tags$div(id = "commod_value_growth_share"),
-    tags$br(),
-    tags$div(id = "table_summary_commod")
-    ),
-     tabItem(
-       tabName = "forecasting_trade",
-       tags$h1("Work In Progress...")
-     ),
-     tabItem(
-       tabName = "macro_forecast",
-       tags$h1("Work In Progress...")
-     ),
-     tabItem(
-       tabName = "macro_forecast",
-       tags$h1("Work In Progress...")
-     )
+        ),
+        tags$br(),
+        tags$div(id = "commod_concord_table",
+                 fluidRow(
+                   column(
+                     width = 12,
+                     # render HS codes and Services codes
+                     dataTableOutput("concordance_codes"))
+                 )
+        ),
+        # clear table selection
+        tags$div(id = "clear_commod_table",
+                 fluidRow(
+                   column(
+                     width = 12,
+                     div(style = "width: 250px;",
+                         actionBttn(inputId = "clear_hsserv_table",
+                                    label = "Clear Selection",
+                                    icon = icon("refresh"),
+                                    style = "jelly")
+                     )
+                   )
+                 )
+        ),
+        # insert UI for first level of commodity analysis
+        tags$br(),
+        tags$div(id = "commod_value_line_table"),
+        tags$br(),
+        tags$div(id = "commod_value_growth_share"),
+        tags$br(),
+        tags$div(id = "table_summary_commod"),
+        tags$br(),
+        tags$div(uiOutput("title_commod_top_market"),
+                 uiOutput("select_commod_top_market"),
+                 tags$br(),
+                 uiOutput("commod_chart_val_share"))
+      ),
+      tabItem(
+        tabName = "forecasting_trade",
+        tags$h1("Work In Progress...")
+      ),
+      tabItem(
+        tabName = "macro_forecast",
+        tags$h1("Work In Progress...")
+      ),
+      tabItem(
+        tabName = "macro_forecast",
+        tags$h1("Work In Progress...")
+      )
     )
   )
 )
@@ -2990,7 +2995,11 @@ server <- function(input, output, session) {
                                    trade_flow = "M",
                                    type = "goods")
 
-      rv_commod_analysis$trade_commod_annual_goods_data <- do.call(rbind, list(export_max, import_max)) %>% mutate(trade_type = "goods")
+      rv_commod_analysis$trade_commod_annual_goods_data <- do.call(rbind, list(export_max, import_max)) %>%
+        mutate(trade_type = "goods") %>% 
+        select(-cmd_desc) %>% 
+        inner_join(combined_concord, by = join_by("cmd_code" == "id")) %>% 
+        rename("cmd_desc" = text)
 
 
       # monthly trade data
@@ -3047,7 +3056,7 @@ server <- function(input, output, session) {
           date_str = paste0(ref_year, "-", month, "-01"),
           quarter = paste0("Q", lubridate::quarter(lubridate::ymd(date_str)), " ", ref_year),
           ref_quarter = as.numeric(paste0(ref_year, lubridate::quarter(lubridate::ymd(date_str)))),
-          period = paste0(ref_year, "-", month)
+          period = ymd(ref_period_id)
         )
       
       # Base grouping columns
@@ -3064,7 +3073,7 @@ server <- function(input, output, session) {
                                            summarise(total_trade_value = sum(primary_value), .groups = "drop") %>% 
                                            relocate(period) %>% 
                                            mutate(period = trimws(period),
-                                                  period = as.Date(paste0(period, "-01")))
+                                                  period = as.Date(period))
                                        },
                                        "Quarterly" = {
                                          trade_data %>%
@@ -3160,14 +3169,11 @@ server <- function(input, output, session) {
       rv_commod_analysis$check_services_code <- unique(rv_commod_analysis$commod_data_set$trade_type)
       })
     
-    observe({print(input$select_commod_val_agg)})
-    
     # data processing for selected commodities
     data_for_commod_live_val_chart <- reactive({
       req(rv_commod_analysis$commod_data_set , input$select_commod_val_aggr, rv_commod_analysis$check_services_code)
       
       # data for chart 
-      ########## FUNCTIONISED THIS BAD BOY 
       if (length(rv_commod_analysis$check_services_code) > 1) {
         data_goods <- rv_commod_analysis$commod_data_set  %>% filter(trade_type == "goods")
         data_serv <- rv_commod_analysis$commod_data_set  %>% filter(trade_type == "services")
@@ -3403,7 +3409,7 @@ server <- function(input, output, session) {
     output$commod_line_val_share <- renderHighchart({
       req(share_commod_data(),input$select_commod_val_share)
       
-      hchart(share_commod_data(), type = "line", 
+      hchart(share_commod_data() %>% mutate(share_percent = share_percent * 100), type = "line", 
              hcaes(x = period, y = share_percent, group = cmd_desc),
              connectNulls = TRUE
       ) %>% 
@@ -3560,9 +3566,6 @@ server <- function(input, output, session) {
           inner_join(summary_stats_commod(), by = join_by(cmd_code, cmd_desc))
       })
       
-    observe({print(as_of_stats_commod())})
-    observe({print(summary_stats_commod())})
-    observe({print(combined_stats_commod())})
     # datatable for summary
     output$commod_table_summary <- renderDataTable({
       req(combined_stats_commod(), input$select_exp_imp_commod)
@@ -3571,9 +3574,8 @@ server <- function(input, output, session) {
  
       datatable(data,
                 rownames = FALSE,
-                extensions = c("Buttons", "Responsive"),
-                options = list(dom = "Btp",
-                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                extensions = c("Responsive"),
+                options = list(dom = "tp",
                                pageLength = 5,
                                lengthMenu = list(c(5, 10, -1), c("5", "10", "All"))
                                ),
@@ -3632,13 +3634,278 @@ server <- function(input, output, session) {
              )
     )
     
+    ## Implement the selectised input for further analysis
+    # hs + serv selected commodities 
+    # render UI for title and selected commodities
+    output$title_commod_top_market <- renderUI({
+      
+      tags$div(id = "title_top_commod_analysis",
+               fluidRow(
+                 column(
+                   width = 12,
+                   div(
+                     style = "text-align: center;",
+                     div(
+                       style = "display: inline-block;",
+                       h3(paste0("Top ", rv_commod_analysis$exp_imp_commod," market commodities"),
+                          style = "font-size: 28px; font-weight: 700; color: #2c3e50; padding: 5px; margin: 0;"),
+                       tags$hr(
+                         class = "animate-line"
+                       )
+                     )
+                   )
+                 )
+               )
+      )
+    })
+    
+    output$select_commod_top_market <- renderUI({
+      
+      select_top_commod_choices <- rv_commod_analysis$commod_table_filter$text
+      
+      tags$div(id = "selectised_top_market",
+               fluidRow(
+                 column(
+                   width = 12,
+                   div(
+                     style = "display: flex; justify-content: center; align-items",
+                     div(style = "width: 700px;",
+                         pickerInput(
+                           inputId = "selectised_input_top_market",
+                           label = "Please Select Commodities",
+                           selected = NULL,
+                           choices = c("Please select commodity" = "", select_top_commod_choices),
+                           multiple = FALSE,
+                           width = "700px"
+                         ),
+                         div(
+                           style = "margin-top: -10px",
+                           span(HTML("*Please note that <Strong>services data</Strong> are not available for this kind of analysis."))
+                         )
+                     )
+                   )
+                 )
+               )
+      )
+      
+    })
+    
+    # top 10 export/import partner for the given commodities
+    # shaping annual data to the desired format
+    
+    top_trade_commod_data <- reactive({
+      req(rv_commod_analysis$trade_commod_annual_goods_data, rv_commod_analysis$exp_imp_commod, input$selectised_input_top_market)
+      
+      
+      rv_commod_analysis$trade_commod_annual_goods_data %>% 
+        select(ref_period_id, ref_year, period, reporter_iso, reporter_desc,
+               flow_desc, partner_iso, cmd_code, cmd_desc, primary_value) %>%
+        filter(cmd_desc %in% input$selectised_input_top_market & flow_desc %in% rv_commod_analysis$exp_imp_commod) %>% 
+        mutate(ref_period_id = ymd(ref_period_id), 
+               primary_value = primary_value/1e6) %>% 
+        group_by(ref_period_id, ref_year, period, reporter_iso, flow_desc, reporter_desc, cmd_code, cmd_desc) %>% 
+        mutate(total_trade = sum(primary_value),
+               share_percent = primary_value/total_trade * 100) %>% 
+        ungroup() %>% 
+        arrange(ref_period_id, cmd_desc, desc(primary_value)) %>% 
+        group_by(ref_period_id, partner_iso, cmd_desc) %>% 
+        mutate(avg_trade = mean(primary_value)) %>% 
+        ungroup() %>% 
+        group_by(ref_period_id, cmd_desc) %>% 
+        mutate(q75 = quantile(primary_value, c(0.75))) %>%
+        ungroup() %>% 
+        mutate(top_partner = if_else(primary_value > q75, 1, 0)) %>% 
+        ungroup() %>% 
+        group_by(partner_iso, cmd_desc) %>% 
+        mutate(count_top = sum(top_partner)) %>% 
+        ungroup() %>% 
+        mutate(count_year = n_distinct(period))
+
+    })
+    
+    top_country_selection <- reactive({
+      req(top_trade_commod_data())
+      fil_data_top_trade_commod <- top_trade_commod_data() %>% filter(count_top >= 5)
+      
+      top_countries <- unique(fil_data_top_trade_commod$partner_iso)
+      
+      fil_data_top_trade <- fil_data_top_trade_commod %>% 
+        filter(partner_iso %in% c(top_countries)) %>% 
+        ungroup() %>% 
+        group_by(partner_iso, cmd_desc) %>% 
+        summarise(total_trade_partner = sum(primary_value)) %>% 
+        arrange(desc(total_trade_partner))
+      
+      if (length(fil_data_top_trade$partner_iso) > 10) {
+        
+        top_countries_fil <- fil_data_top_trade$partner_iso[1:10]
+        
+      } else {
+        
+        top_countries_fil <- fil_data_top_trade$partner_iso
+        
+      }
+      
+      # final data set
+      data_final_top_trade <- fil_data_top_trade_commod %>% filter(partner_iso %in% c(top_countries_fil)) %>% 
+        select(-c(reporter_iso, total_trade, avg_trade, q75, top_partner, count_top, count_year)) %>%
+        mutate(partner_iso = factor(partner_iso, levels = top_countries_fil))
+      
+    })
+    
+    # render highchart line for top 10 and percentage
+    output$top_trade_commod_val <- renderHighchart({
+      req(top_country_selection())
+
+      hchart(top_country_selection() , type = "line", 
+             hcaes(x = ref_period_id, y = primary_value, group = partner_iso),
+             connectNulls = TRUE,
+             visible = c(rep(TRUE, 5), rep(FALSE, length(unique(top_country_selection()$partner_iso)) - 5))
+      ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "Total Trade Value (Million USD)", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "M",
+          valuePreffix = "$ ",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
+    
+    output$top_trade_commod_val_share <- renderHighchart({
+      req(top_country_selection())
+      
+      hchart(top_country_selection(), type = "line", 
+             hcaes(x = ref_period_id, y = share_percent, group = partner_iso),
+             connectNulls = TRUE,
+             visible = c(rep(TRUE, 5), rep(FALSE, length(unique(top_country_selection()$partner_iso)) - 5))
+      ) %>% 
+        hc_xAxis(
+          title = list(text = "Period", style = list(fontSize = "14px")),
+          labels = list(style = list(fontSize = "12px"))
+        ) %>% 
+        hc_yAxis(
+          title = list(text = "% Percentage", 
+                       style = list(fontSize = "14px")),
+          labels = list(format = "{value}", 
+                        style = list(fontSize = "12px"))
+        ) %>% 
+        hc_tooltip(
+          shared = TRUE,
+          crosshairs = TRUE,
+          valueDecimals = 2,
+          valueSuffix = "%",
+          headerFormat = '<b>{point.key}</b><br>',
+          style = list(fontSize = "12px")
+        ) %>% 
+        hc_legend(
+          layout = "vertical",
+          align = "left",
+          verticalAlign = "top",
+          floating = TRUE,
+          x = 80, 
+          y = 0,
+          itemStyle = list(fontSize = "12px")
+        ) %>%
+        hc_credits(
+          enabled = TRUE,
+          text = "Source: UN Comtrade",
+          style = list(fontSize = "11px"))
+    })
+    
+    # render title for top country commod value chart
+    output$title_top_country_commod_val <- renderText({
+      
+    })
+    
+    # render UI for both annual top 10 trade chart and share of percentage
+    output$commod_chart_val_share <- renderUI({
+      
+      div(id = "commod_top_chart",
+          div(style = "text-align: left;
+                       font-size: 28px;
+                       font-weight: 700;
+                       color: #2c3e50;
+                       padding: 5px;
+                       margin-bottom: 5px;
+                       margin-top: -10px;",
+              span(paste0("Top 10 Annual ", rv_commod_analysis$exp_imp_commod, " Country Destination"))
+          ),
+          fluidRow(
+            column(
+              width = 6,
+              div(
+                style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                div(
+                  style = "text-align: center;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-top: -10px;",
+                  span(paste0(rv_commod_analysis$exp_imp_commod, " Values"))
+                ),
+                highchartOutput("top_trade_commod_val")
+              )
+            ),
+            
+            column(
+              width = 6,
+              div(
+                style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                div(
+                  style = "text-align: center;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-top: -10px;",
+                  span(paste0("As of percent total ", rv_commod_analysis$exp_imp_commod))
+                ),
+                highchartOutput("top_trade_commod_val_share")
+              )
+            )
+          )
+      )
+      
+      
+    })
+  
+    
     ## update choices 
     observe({
-      req(rv_commod_analysis$check_services_code)
+      req(rv_commod_analysis$check_services_code, rv_commod_analysis$commod_table_filter)
       
       check_commod_codes <- rv_commod_analysis$check_services_code
       
       if(length(check_commod_codes) > 1) { 
+        
         
         updatePickerInput(session = session, 
                           inputId = "select_commod_val_aggr",
@@ -3652,6 +3919,9 @@ server <- function(input, output, session) {
                           inputId = "select_commod_val_share",
                           choices = c("Quarterly", "Annual"))
         
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_table_summary",
+                          choices = c("Quarterly", "Annual"))
         
       } else if (check_commod_codes %in% c("goods")){
         
@@ -3665,6 +3935,10 @@ server <- function(input, output, session) {
         
         updatePickerInput(session = session, 
                           inputId = "select_commod_val_share",
+                          choices = c("Monthly","Quarterly", "Annual"))
+        
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_table_summary",
                           choices = c("Monthly","Quarterly", "Annual"))
         
       } else {
@@ -3681,14 +3955,22 @@ server <- function(input, output, session) {
                           inputId = "select_commod_val_share",
                           choices = c("Quarterly", "Annual"))
         
+        updatePickerInput(session = session, 
+                          inputId = "select_commod_table_summary",
+                          choices = c("Quarterly", "Annual"))
+        
+        
       }
+      
+      select_hs_commod <- grep("[0-9]", rv_commod_analysis$commod_table_filter$id, value = TRUE)
+      update_select_top_commod <- rv_commod_analysis$commod_table_filter[rv_commod_analysis$commod_table_filter$id %in% select_hs_commod, ]$text
+      
+      updatePickerInput(session = session,
+                        inputId = "selectised_input_top_market",
+                        choices = c("Please select commodity" = "", update_select_top_commod))
+      
     })
     
-    
-    
-    ## Implement the selectised input for further analysis
-    
-    # inser UI
     
     # trade data both services and goods
     # service choices
