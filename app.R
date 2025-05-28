@@ -863,7 +863,9 @@ ui <- dashboardPage(
         tags$div(uiOutput("title_commod_top_market"),
                  uiOutput("select_commod_top_market"),
                  tags$br(),
-                 uiOutput("commod_chart_val_share"))
+                 uiOutput("commod_chart_val_share"),
+                 tags$br(),
+                 uiOutput("commod_cagr_table"))
       ),
       tabItem(
         tabName = "forecasting_trade",
@@ -3242,7 +3244,7 @@ server <- function(input, output, session) {
     # export name 
     output$title_commod_val <- renderText({
       req(rv_commod_analysis$exp_imp_commod)
-      paste0(rv_commod_analysis$exp_imp_commod, " for selected commodities")
+      paste0(rv_commod_analysis$exp_imp_commod, " value for selected commodities")
     })
     
     ## Insert UI
@@ -3368,7 +3370,7 @@ server <- function(input, output, session) {
     output$commod_line_val_growth <- renderHighchart({
       req(growth_commod_data(),input$select_commod_val_growth)
       
-      hchart(growth_commod_data(), type = "line", 
+      hchart(growth_commod_data() %>% mutate(growth_rate = growth_rate * 100), type = "line", 
              hcaes(x = period, y = growth_rate, group = cmd_desc),
              connectNulls = TRUE
       ) %>% 
@@ -3700,12 +3702,15 @@ server <- function(input, output, session) {
       rv_commod_analysis$trade_commod_annual_goods_data %>% 
         select(ref_period_id, ref_year, period, reporter_iso, reporter_desc,
                flow_desc, partner_iso, cmd_code, cmd_desc, primary_value) %>%
+        # group_by(ref_year, reporter_iso, flow_desc) %>%
+        # mutate(total_trade = sum(primary_value)/1e6) %>%
+        # ungroup() %>%
         filter(cmd_desc %in% input$selectised_input_top_market & flow_desc %in% rv_commod_analysis$exp_imp_commod) %>% 
         mutate(ref_period_id = ymd(ref_period_id), 
                primary_value = primary_value/1e6) %>% 
         group_by(ref_period_id, ref_year, period, reporter_iso, flow_desc, reporter_desc, cmd_code, cmd_desc) %>% 
         mutate(total_trade = sum(primary_value),
-               share_percent = primary_value/total_trade * 100) %>% 
+               share_percent = (primary_value/total_trade) * 100) %>% 
         ungroup() %>% 
         arrange(ref_period_id, cmd_desc, desc(primary_value)) %>% 
         group_by(ref_period_id, partner_iso, cmd_desc) %>% 
@@ -3837,11 +3842,6 @@ server <- function(input, output, session) {
           style = list(fontSize = "11px"))
     })
     
-    # render title for top country commod value chart
-    output$title_top_country_commod_val <- renderText({
-      
-    })
-    
     # render UI for both annual top 10 trade chart and share of percentage
     output$commod_chart_val_share <- renderUI({
       
@@ -3886,7 +3886,7 @@ server <- function(input, output, session) {
                          padding: 5px;
                          margin-bottom: 5px;
                          margin-top: -10px;",
-                  span(paste0("As of percent total ", rv_commod_analysis$exp_imp_commod))
+                  span(paste0("As a percent of total ", rv_commod_analysis$exp_imp_commod))
                 ),
                 highchartOutput("top_trade_commod_val_share")
               )
@@ -3971,6 +3971,104 @@ server <- function(input, output, session) {
       
     })
     
+    
+    ## Add tables 
+    data_for_top_country_table <- reactive({
+
+      table_top_data <- top_trade_commod_data() %>%
+        select(-c(avg_trade, q75, top_partner, count_top, count_year)) %>% 
+        arrange(partner_iso, cmd_desc) %>% 
+        group_by(partner_iso, flow_desc, cmd_desc) %>% 
+        mutate(n = n()) %>% 
+        # only allow a series where it has 10 or more observation per country
+        filter(n >= 10) %>% 
+        group_by(flow_desc, partner_iso, cmd_code, cmd_desc) %>% 
+        mutate(max_year = max(ref_year),
+               diff_year = max_year - ref_year) %>% 
+        filter(diff_year %in% c(0,1,5,10))
+      
+      # CAGR 10 year
+      table_top_data_cagr_10 <- table_top_data %>% 
+        filter(diff_year %in% c(0, 10)) %>% 
+        summarise(cagr_10 = (primary_value/lag(primary_value))^(1/10) - 1) %>% 
+        drop_na()
+      
+      # CAGR 5 year
+      table_top_data_cagr_5 <- table_top_data %>% 
+        filter(diff_year %in% c(0, 5)) %>% 
+        summarise(cagr_5 = (primary_value/lag(primary_value))^(1/5) - 1) %>% 
+        drop_na()
+      
+      # CAGR 1 year
+      table_top_data_cagr_1 <- table_top_data %>% 
+        filter(diff_year %in% c(0, 1)) %>% 
+        summarise(cagr_1 = (primary_value/lag(primary_value))^(1/1) - 1) %>% 
+        drop_na()
+      
+      # current trade value
+      table_top_data_currval <- table_top_data %>% filter(diff_year == 0) %>% mutate(share_percent = share_percent/100)
+      
+      table_top_cagr_final <- table_top_data_currval %>% 
+        inner_join(table_top_data_cagr_1)%>% 
+        inner_join(table_top_data_cagr_5) %>% 
+        inner_join(table_top_data_cagr_10) %>% 
+        inner_join(all_countrycode, by = join_by(partner_iso == ISO3_CODE)) %>% 
+        ungroup() %>% 
+        select(cldr.short.en, flow_desc, cmd_desc, primary_value, share_percent, cagr_1, cagr_5, cagr_10) %>% 
+        arrange(desc(primary_value))
+      
+    })
+    
+    # render datatable
+    output$data_table_cagr_commod <- renderDataTable({
+
+      req(data_for_top_country_table())
+      datatable(data_for_top_country_table() ,
+                rownames = FALSE,
+                extensions = c("Responsive"),
+                options = list(dom = "tp",
+                               pageLength = 10,
+                               lengthMenu = list(c(5, 10, -1), c("5", "10", "All"))
+                ),
+                colnames = c("Country", "Trade Flow", "Classification", "Trade Value ($M)", paste0("Share of ",  rv_commod_analysis$exp_imp_commod),
+                             "CAGR 1 (%)", "CAGR 05 (%)", "CAGR 10 (%)")
+      ) %>%
+        formatStyle(c("cagr_1", "cagr_5", "cagr_10"),
+                    color = JS("value < 0 ? 'darkred' : value > 0 ? 'darkgreen' : 'black'")) %>%
+        formatPercentage(c("share_percent","cagr_1", "cagr_5", "cagr_10"),digits = 2) %>% 
+        formatCurrency(c("primary_value"), currency = "$") %>% 
+        formatStyle(c("cagr_1", "cagr_5", "cagr_10"),
+                    # understand this bit
+                    background = styleColorBar(c(0,max(c(data_for_top_country_table()$cagr_1, data_for_top_country_table()$cagr_5, data_for_top_country_table()$cagr_10)) * 2), "lightblue"),
+                    backgroundSize = '100% 90%',
+                    backgroundRepeat = 'no-repeat',
+                    backgroundPosition = 'center')
+    })
+    
+    # render UI 
+    output$commod_cagr_table <- renderUI({
+      
+      div(id = "table_cagr_commod",
+          fluidRow(
+            column(
+              width = 12,
+              div(
+                style = "background-color: #FFFFFF; padding: 20px; border: 1px solid #ccc; border-radius: 10px;",
+                div( style = "text-align: left;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-top: -10px;",
+                     span(paste0("Top ", rv_commod_analysis$exp_imp_commod, " Market Growth"))
+                ),
+                dataTableOutput(outputId = "data_table_cagr_commod")
+              )
+            )
+          )
+      )
+    })
     
     # trade data both services and goods
     # service choices
