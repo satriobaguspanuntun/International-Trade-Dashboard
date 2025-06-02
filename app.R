@@ -13,8 +13,7 @@ library(leaflet)
 library(glue)
 library(waiter)
 
-#source("~/international-Trade-Dashboard/app/ui.R")
-#source("~/international-Trade-Dashboard/app/server.R")
+# source("~/international-Trade-Dashboard/R/helper_functions.R")
 source("~/international-Trade-Dashboard/R/sql_queries.R")
 options(scipen = 999)
 
@@ -72,13 +71,18 @@ clean_hs2 <- function(hs) {
   return(clean_hs)
 }
 
-clean_hs_commod <- clean_hs2(hs_concord)
+clean_hs_commod <- clean_hs2(hs_concord) %>% select(id, text) 
 
 # services concordance
 service_commod <- sql_service_concordance(conn)
 
 # combined hs + services concordances
-combined_concord <- clean_hs_commod %>% select(id, text) %>% bind_rows(service_commod)
+combined_concord <- clean_hs_commod %>% bind_rows(service_commod)
+
+# available series for forecast
+aggregate_series <-  c("Total Goods", "Total Services", "Trade Balance")
+
+available_series <- combined_concord$text
 
 # fetch year query
 year_range_table <- sql_year_range(conn)
@@ -869,7 +873,239 @@ ui <- dashboardPage(
       ),
       tabItem(
         tabName = "forecasting_trade",
-        tags$h1("Work In Progress...")
+        useBusyIndicators(),
+        fluidRow(
+          column(
+            width = 4,
+            div(
+              style = "text-align: left; width: 100%; padding-bottom: 10px;",
+              
+              tags$head(
+                tags$style(HTML("
+      @keyframes slideFadeInText {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes slideInLine {
+        from { width: 0; opacity: 0; }
+        to { width: 100%; opacity: 1; }
+      }
+
+      .title-container {
+        display: inline-block;
+        animation: slideFadeInText 0.8s ease-out forwards;
+      }
+      
+      .animate-text{
+        animation: slideFadeInText 0.8 ease forwards;
+      }
+
+      .title-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+      }
+
+      .animated-hr {
+        height: 4px;
+        background: linear-gradient(to right, #2c3e50, #3498db);
+        border: none;
+        margin-top: 5px;
+        animation: slideInLine 1s ease-out forwards;
+        animation-delay: 0.4s;
+        animation-fill-mode: both;
+      }
+
+      .header-icon {
+        color: #3498db;
+        font-size: 28px;
+      }
+      
+      .card-header {
+        border-bottom: 0px solid rgba(0,0,0,.125);
+      }
+    "))
+              ),
+              
+              div(
+                class = "title-container",
+                tags$div(
+                  class = "title-content",
+                  tags$i(class = "fas fa-chart-line header-icon"),
+                  "Trade-Forecasting"
+                ),
+                tags$hr(class = "animated-hr")
+              )
+            )
+          )
+        ),
+        tags$div(
+          h4("X-13 ARIMA SEATS Method", style = "text-align: left;
+                                                 font-size: 24px;
+                                                 font-weight: 700;
+                                                 color: #2c3e50;
+                                                 padding: 5px;")
+        ),
+        fluidRow(
+          column(
+            width = 12,
+            box(
+              width = 12,
+              title = tagList(
+                tags$div(
+                  style = "text-align: left;
+                         font-size: 22px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;",
+                  span("Options")
+                )
+              ),
+              status = "primary",
+              collapsible = TRUE,
+              tags$div(
+                  style = "text-align: left;
+                         font-size: 20px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-left: -5px;
+                         margin-top: -25px;",
+                  span("Time Series")
+              ),
+              fluidRow(
+                column(
+                  width = 3,
+                  # Select country
+                  pickerInput(
+                    inputId = "country_seasonal_select",
+                    label = "Country",
+                    choices = countrycode$iso.name.en,
+                    multiple = FALSE
+                  )
+                ),
+                column(
+                  width = 3,
+                  # Select trade flow
+                  pickerInput(
+                    inputId = "exp_imp_seasonal_select",
+                    label = "Trade Flow",
+                    choices = c("Export", "Import"),
+                    selected = "Export",
+                    multiple = FALSE
+                  )
+                ),
+                column(
+                  width = 3,
+                  # Select frequency
+                  pickerInput(
+                    inputId = "freq_forecast_select",
+                    label = "Frequency",
+                    choices = c("Monthly", "Quarterly"),
+                    selected = "Monthly",
+                    multiple = FALSE
+                  )
+                )
+              ),
+              tags$div(
+                style = "text-align: left;
+                         font-size: 20px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-left: -5px;",
+                span("X-13 ARIMA SEATS")
+              ),
+              fluidRow(
+                column(
+                  width = 3,
+                  # select model
+                  pickerInput("seasonal_select_model",
+                              label = "Model",
+                              choices = c("X-13", "X-11"),
+                              selected = "X-13",
+                              multiple = FALSE
+                  )
+                ),
+                column(
+                  width = 3,
+                  # Arima model
+                  pickerInput("seasonal_arima_model",
+                              label = "Arima Model",
+                              choices = c("Automatic Search", "(0 1 1)(0 1 1)", "(0 1 0)(0 1 1)", "(1 1 1)(0 1 1)", "(0 1 1)(0 1 1)"),
+                              selected = "Automatic Search",
+                              multiple = FALSE
+                  )
+                ),
+                column(
+                  width = 3,
+                  # pre-transformation
+                  pickerInput("seasonal_pre_transform",
+                              label = "Pre-transformation",
+                              choices = c("Auto", "log", "sqrt", "No-Transformation"),
+                              selected = "Auto",
+                              multiple = FALSE
+                  )
+                ),
+                column(
+                  width = 3,
+                  # outlier
+                  pickerInput("seasonal_outlier",
+                              label = "Outlier",
+                              choices = c("Auto Critical value", "Low Critical Value", "Medium Critical Value", "High Critical Value", "Disable Detection"),
+                              selected = "Auto Critical Value",
+                              multiple = FALSE)
+                )
+              ),
+              tags$div(
+                style = "text-align: left;
+                         font-size: 20px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: 5px;
+                         margin-left: -5px;",
+                span("Select Available Series")
+            ),
+            fluidRow(
+              column(
+                width = 9,
+                # select series
+                pickerInput("select_seasonal_series",
+                            choices = list(
+                              Aggregate = aggregate_series,
+                              `HS+Services` = available_series
+                            ),
+                            options = pickerOptions(
+                              container = "body",
+                              width ="100%",
+                              liveSearch = TRUE,
+                              size = 10
+                            ),
+                            selected = NULL,
+                            multiple = FALSE
+                )
+              ),
+              column(
+                width = 3,
+                # action button
+                actionBttn("run_x13_model",
+                             label = "Run Seasonal Adjustment & Forecast",
+                             size = "sm",
+                             color = "primary", 
+                             style = "jelly")
+              )
+            )
+          )
+        )
+       )
       ),
       tabItem(
         tabName = "macro_forecast",
@@ -1535,7 +1771,6 @@ server <- function(input, output, session) {
   })
   
   ## stats trade boxes
-
   trade_stats_box <- function(data, year = NULL, type, what) {
     
     if (what == "value" & !is.null(year)) {
@@ -3119,10 +3354,10 @@ server <- function(input, output, session) {
                                          data %>%
                                            group_by(!!!syms(c("ref_period_id", group_cols))) %>%
                                            summarise(total_trade_value = sum(primary_value), .groups = "drop") %>% 
-                                           rename("period" = ref_period_id)  %>% 
+                                            rename("period" = ref_period_id) %>% 
                                            mutate(period = trimws(period),
-                                                  ref_period = as.numeric(paste0(substr(period, 4, 7), substr(period, 2,2)))) %>% 
-                                           arrange(ref_period) %>% 
+                                                  ref_period = as.numeric(paste0(substr(period, 4, 7), substr(period, 2,2)))) %>%
+                                           arrange(ref_period) %>%
                                            select(-ref_period)
                                          
                                        },
@@ -4077,13 +4312,210 @@ server <- function(input, output, session) {
       filtered_choices <- choices[!choices %in% c("Other services", "Memo item: Commercial services")]
       return(filtered_choices)
     })
-    
-    
-
-    
+  
     ###----------------------------------------------------------###
     ### ---------------- TRADE-FORECASTING page ------------_----###
     ###----------------------------------------------------------###
+    
+    # compile inputs & dataset
+    rv_seasonal_seats <- reactiveValues()
+    
+    observeEvent(input$run_x13_model, {
+      req(input$country_seasonal_select, input$exp_imp_seasonal_select, input$freq_forecast_select,
+          input$seasonal_arima_model, input$seasonal_pre_transform, input$seasonal_outlier, input$select_seasonal_series)
+      
+      
+      rv_seasonal_seats$country <- input$country_seasonal_select
+      rv_seasonal_seats$exp_imp <- input$exp_imp_seasonal_select
+      rv_seasonal_seats$freq <- input$freq_forecast_select
+      rv_seasonal_seats$model <- input$seasonal_select_model
+      rv_seasonal_seats$arima_model <- input$seasonal_arima_model
+      rv_seasonal_seats$transform <- input$seasonal_pre_transform
+      rv_seasonal_seats$outlier <- input$seasonal_outlier
+      rv_seasonal_seats$series <- input$select_seasonal_series
+      
+      # data pull
+      # monthly trade data
+      monthly_export_seasonal <- get_trade_data(conn = conn,
+                                       country = rv_seasonal_seats$country,
+                                       start = min_year_trade,
+                                       end = max_year_trade,
+                                       trade_flow = "X",
+                                       type = "monthly_goods")
+      
+      monthly_import_seasonal <- get_trade_data(conn = conn,
+                                      country = rv_seasonal_seats$country,
+                                      start = min_year_trade,
+                                      end = max_year_trade,
+                                      trade_flow = "M",
+                                      type = "monthly_goods")
+      
+      rv_seasonal_seats$monthly_data <- do.call(rbind, list(monthly_export_seasonal, monthly_import_seasonal)) %>%
+        mutate(trade_type = "goods") %>% 
+        # harmonising hs codes, due to different HS revision and versions 
+        select(-cmd_desc) %>% 
+        inner_join(combined_concord, by = join_by("cmd_code" == "id")) %>% 
+        rename("cmd_desc" = text)
+      
+      
+      # serivce data periods ranges from 2005Q1 up to 2024Q4, matched the date range with
+      quarter_export_serv <- get_trade_data(conn = conn,
+                                        country = rv_seasonal_seats$country,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "X",
+                                        type = "services")
+      
+      quarter_import_serv <- get_trade_data(conn = conn,
+                                        country = rv_seasonal_seats$country,
+                                        start = min_year_trade,
+                                        end = max_year_trade,
+                                        trade_flow = "M",
+                                        type = "services")
+      
+      rv_seasonal_seats$quarterly_serv_data <- do.call(rbind, list(quarter_export_serv , quarter_import_serv)) %>%
+        mutate(trade_type = "services") %>% 
+        filter(!cmd_code %in% c("S"))
+      
+      # bind data
+      rv_seasonal_seats$bind_data <- rv_seasonal_seats$monthly_data %>% 
+        arrange(ref_year) %>% 
+        mutate(ref_period_id = as.character(ref_period_id),
+               ref_month = as.character(ref_month),
+               period = as.character(period),
+               primary_value = primary_value/1e6) %>% 
+        bind_rows(rv_seasonal_seats$quarterly_serv_data) %>% 
+        mutate(flow_desc = str_replace(flow_desc, "s", ""))
+               # ref_month = gsub("Q", "", ref_month),
+               # ref_period_id = if_else(freq_code == "Q", paste0(ref_year, ref_month, "01"), ref_period_id),
+               # ref_period_id = ymd(ref_period_id))
+      
+      # calculate all necessary series including the aggregate series
+      # aggregate series
+      rv_seasonal_seats$aggregate_series_goods_monthly <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "goods"),
+                                                                                        freq = "Monthly",
+                                                                                        aggregate_by_code = FALSE) %>% 
+        ungroup() %>% 
+        select(-flow_code) %>% 
+        pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
+        mutate(`Trade Balance` = Export-Import)
+      
+      rv_seasonal_seats$aggregate_series_goods_quarterly <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "goods"),
+                                                                                        freq = "Quarterly",
+                                                                                        aggregate_by_code = FALSE) %>% 
+        ungroup() %>% 
+        select(-flow_code) %>% 
+        pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
+        mutate(`Trade Balance` = Export-Import)
+      
+                                          
+      rv_seasonal_seats$aggregate_series_services_quarterly <- service_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "services"),
+                                                                                             freq = "Quarterly",
+                                                                                             aggregate_by_code = FALSE) %>% 
+        ungroup() %>% 
+        select(-flow_code) %>% 
+        pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
+        mutate(`Trade Balance` = Export-Import)
+      
+
+      # hs+service series
+      if (!rv_seasonal_seats$series %in% c(aggregate_series)) {
+        
+        # check valid hs code
+        valid_hs <- grep("[0-9]{2}$", x = combined_concord$id, value = TRUE)
+        valid_hs_text <- combined_concord[combined_concord$id %in% valid_hs, ]$text
+        
+        # check valid service code
+        valid_serv_code <- grep("[A-Za-z]", x = combined_concord$id, value = TRUE)
+        valid_serv_code_text <- combined_concord[combined_concord$id %in% valid_serv_code, ]$text
+        
+        if (any(rv_seasonal_seats$series %in% valid_hs_text)) {
+          
+          rv_seasonal_seats$commod_series <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>%
+                                                                                   filter(trade_type == "goods",
+                                                                                          flow_desc == rv_seasonal_seats$exp_imp,
+                                                                                          cmd_desc == rv_seasonal_seats$series),
+                                                                                 freq = rv_seasonal_seats$freq,
+                                                                                 aggregate_by_code = TRUE)
+          
+          
+        } else if (any(rv_seasonal_seats$series %in% valid_serv_code_text)) {
+          
+          if (rv_seasonal_seats$freq == "Quarterly") {
+            rv_seasonal_seats$commod_series <- service_trade_summariser_func(data = rv_seasonal_seats$bind_data %>%
+                                                                               filter(trade_type == "services",
+                                                                                      flow_desc == rv_seasonal_seats$exp_imp,
+                                                                                      cmd_desc == rv_seasonal_seats$series),
+                                                                             freq = rv_seasonal_seats$freq,
+                                                                             aggregate_by_code = TRUE)
+          } else {
+            rv_seasonal_seats$commod_series <- NULL
+            show_alert(title = "Error",
+                       text = "Please select 'Quarterly' in the frequency input box for Services series.",
+                       closeOnClickOutside = TRUE,
+                       type = "error")
+          }
+        }
+      } else {
+        
+        col_group <- c("period", "reporter_iso", "reporter_desc", "partner_iso", "trade_type")
+        
+        if (rv_seasonal_seats$series == "Total Goods") {
+          
+          if (rv_seasonal_seats$freq == "Monthly") {
+            
+            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_monthly[, c(col_group, rv_seasonal_seats$exp_imp)] 
+            
+          } else {
+            
+            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_quarterly[, c(col_group, rv_seasonal_seats$exp_imp)] 
+            
+          }
+          
+        } else if (rv_seasonal_seats$series == "Total Services") {
+          
+          if (rv_seasonal_seats$freq == "Quarterly") {
+          
+          rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_services_quarterly[, c(col_group, rv_seasonal_seats$exp_imp)]
+
+          
+        } else {
+          rv_seasonal_seats$commod_series <- NULL
+          show_alert(title = "Error",
+                     text = "Please select 'Quarterly' in the frequency input box for Services series.",
+                     closeOnClickOutside = TRUE,
+                     type = "error")
+          
+        }
+        
+      }
+      
+    }
+      
+      
+        
+      
+    })
+    
+    observe({print(rv_seasonal_seats$commod_series)})
+    # data pull and cleaning
+    
+    # data summariser if necessary
+    
+    # convert selected series into ts object
+    
+    # write down seas wrapper function
+    
+    # separate seas output by decomposition, original and seasonaladj value
+    
+    # dygraph line plot function for origianl and seasonal adj series
+    
+    # forecast plot
+    
+    # render UI
+    
+    # diagnostic table
+    
     
     
 }
