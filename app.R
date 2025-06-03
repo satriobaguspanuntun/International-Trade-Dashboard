@@ -12,6 +12,8 @@ library(sf)
 library(leaflet)
 library(glue)
 library(waiter)
+library(seasonal)
+library(dygraphs)
 
 # source("~/international-Trade-Dashboard/R/helper_functions.R")
 source("~/international-Trade-Dashboard/R/sql_queries.R")
@@ -1105,6 +1107,9 @@ ui <- dashboardPage(
             )
           )
         )
+       ),
+       fluidRow(
+         dygraphOutput("time_series_adjusted_plot",height = "600px")
        )
       ),
       tabItem(
@@ -4317,9 +4322,35 @@ server <- function(input, output, session) {
     ### ---------------- TRADE-FORECASTING page ------------_----###
     ###----------------------------------------------------------###
     
+    # convert to ts object
+    convert_to_ts <- function(data, freq) {
+      
+      freq_num <- ifelse(freq == "Monthly", 12, 4)
+      year_pattern <- "[0-9]{4}"
+      period_pattern <- ifelse(freq == "Monthly", "-([0-9]{2})-", "Q([0-9]{1})")
+      
+      year_series <- as.numeric(unlist(regmatches(x = data$period, 
+                                                  gregexpr(year_pattern, data$period))))
+      
+      period_series <- sapply(regmatches(x = data$period, 
+                                         gregexec(period_pattern, data$period)), FUN = function(x) as.numeric(x[[2]]))
+      
+      min_year_series <- min(year_series)
+      max_year_series <- max(year_series)
+      min_period_series <- period_series[1]
+      max_period_series <- period_series[length(period_series)]
+      
+      converted_var_ts <- ts(data$total_trade_value,
+                             start = c(min_year_series, min_period_series),
+                             frequency = freq_num)
+      
+      return(converted_var_ts)
+    }
+    
     # compile inputs & dataset
     rv_seasonal_seats <- reactiveValues()
     
+    # data pull and cleaning
     observeEvent(input$run_x13_model, {
       req(input$country_seasonal_select, input$exp_imp_seasonal_select, input$freq_forecast_select,
           input$seasonal_arima_model, input$seasonal_pre_transform, input$seasonal_outlier, input$select_seasonal_series)
@@ -4386,9 +4417,6 @@ server <- function(input, output, session) {
                primary_value = primary_value/1e6) %>% 
         bind_rows(rv_seasonal_seats$quarterly_serv_data) %>% 
         mutate(flow_desc = str_replace(flow_desc, "s", ""))
-               # ref_month = gsub("Q", "", ref_month),
-               # ref_period_id = if_else(freq_code == "Q", paste0(ref_year, ref_month, "01"), ref_period_id),
-               # ref_period_id = ymd(ref_period_id))
       
       # calculate all necessary series including the aggregate series
       # aggregate series
@@ -4398,7 +4426,8 @@ server <- function(input, output, session) {
         ungroup() %>% 
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
-        mutate(`Trade Balance` = Export-Import)
+        mutate(`Trade Balance` = Export-Import) %>% 
+        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
       
       rv_seasonal_seats$aggregate_series_goods_quarterly <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "goods"),
                                                                                         freq = "Quarterly",
@@ -4406,7 +4435,9 @@ server <- function(input, output, session) {
         ungroup() %>% 
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
-        mutate(`Trade Balance` = Export-Import)
+        mutate(`Trade Balance` = Export-Import) %>% 
+        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
+      
       
                                           
       rv_seasonal_seats$aggregate_series_services_quarterly <- service_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "services"),
@@ -4415,7 +4446,9 @@ server <- function(input, output, session) {
         ungroup() %>% 
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
-        mutate(`Trade Balance` = Export-Import)
+        mutate(`Trade Balance` = Export-Import) %>% 
+        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
+      
       
 
       # hs+service series
@@ -4429,6 +4462,7 @@ server <- function(input, output, session) {
         valid_serv_code <- grep("[A-Za-z]", x = combined_concord$id, value = TRUE)
         valid_serv_code_text <- combined_concord[combined_concord$id %in% valid_serv_code, ]$text
         
+        
         if (any(rv_seasonal_seats$series %in% valid_hs_text)) {
           
           rv_seasonal_seats$commod_series <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>%
@@ -4438,16 +4472,21 @@ server <- function(input, output, session) {
                                                                                  freq = rv_seasonal_seats$freq,
                                                                                  aggregate_by_code = TRUE)
           
-          
+          rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
+           
         } else if (any(rv_seasonal_seats$series %in% valid_serv_code_text)) {
           
           if (rv_seasonal_seats$freq == "Quarterly") {
+            
             rv_seasonal_seats$commod_series <- service_trade_summariser_func(data = rv_seasonal_seats$bind_data %>%
                                                                                filter(trade_type == "services",
                                                                                       flow_desc == rv_seasonal_seats$exp_imp,
                                                                                       cmd_desc == rv_seasonal_seats$series),
                                                                              freq = rv_seasonal_seats$freq,
                                                                              aggregate_by_code = TRUE)
+            
+            rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
+            
           } else {
             rv_seasonal_seats$commod_series <- NULL
             show_alert(title = "Error",
@@ -4464,11 +4503,15 @@ server <- function(input, output, session) {
           
           if (rv_seasonal_seats$freq == "Monthly") {
             
-            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_monthly[, c(col_group, rv_seasonal_seats$exp_imp)] 
+            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_monthly %>% filter(flow_desc == rv_seasonal_seats$exp_imp)
+            
+            rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
             
           } else {
             
-            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_quarterly[, c(col_group, rv_seasonal_seats$exp_imp)] 
+            rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_goods_quarterly %>% filter(flow_desc == rv_seasonal_seats$exp_imp)
+            
+            rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
             
           }
           
@@ -4476,9 +4519,10 @@ server <- function(input, output, session) {
           
           if (rv_seasonal_seats$freq == "Quarterly") {
           
-          rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_services_quarterly[, c(col_group, rv_seasonal_seats$exp_imp)]
-
+          rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_services_quarterly %>% filter(flow_desc == rv_seasonal_seats$exp_imp)
           
+          rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
+
         } else {
           rv_seasonal_seats$commod_series <- NULL
           show_alert(title = "Error",
@@ -4488,24 +4532,77 @@ server <- function(input, output, session) {
           
         }
         
-      }
+      } 
       
     }
-      
-      
-        
       
     })
     
     observe({print(rv_seasonal_seats$commod_series)})
-    # data pull and cleaning
-    
-    # data summariser if necessary
-    
-    # convert selected series into ts object
-    
+  
     # write down seas wrapper function
+    seas_wrapper <- function(series, model, arima_model, pre_transform, outlier) {
+
+      input_list <- list()
+      input_list[["x"]] <- series
+      # check method 
+      if (model == "X-11") {
+        
+        input_list[["x11"]] <- ""
+        
+      }
+      # check arima model
+      if (arima_model != "Automatic Search") {
+        
+        input_list[["arima.model"]] <- arima_model
+      } 
+        
+      
+      # pre-transform input
+      if (pre_transform == "No-Transformation"){
+        
+        input_list[["transform.function"]] <- "none"
+        
+      } else {
+        
+        input_list[["transform.function"]] <- pre_transform
+        
+      }
+      # outlier detection input
+      if (outlier == "Disable Detection") {
+        
+        input_list[["outlier"]] <- list(NULL)
+        
+      } else {
+        
+        input_list[["outlier.critical"]] <- switch(outlier,
+                                                   "Low Critical Value" = {x <- 3},
+                                                   "Medium Critical Value" = {x <- 4},
+                                                   "High Critical Value" = {x <- 5})
+      }
+      
+      # run seas 
+      seasonal_series <- seas(list = input_list)
+      
+      return(seasonal_series)
+    }
     
+    seas_out <- reactive({
+      
+      req(rv_seasonal_seats$commod_series_ts, rv_seasonal_seats$model, rv_seasonal_seats$arima_model, rv_seasonal_seats$transform, rv_seasonal_seats$outlier)
+      
+      seas_wrapper(series = rv_seasonal_seats$commod_series_ts,
+                   model = rv_seasonal_seats$model,
+                   arima_model = rv_seasonal_seats$arima_model,
+                   pre_transform = rv_seasonal_seats$transform,
+                   rv_seasonal_seats$outlier)
+      
+    })
+    
+    observe({
+      req(rv_seasonal_seats$commod_series_ts, rv_seasonal_seats$model, rv_seasonal_seats$arima_model, rv_seasonal_seats$transform, rv_seasonal_seats$outlier)
+      print(summary(seas_out()))
+      })
     # separate seas output by decomposition, original and seasonaladj value
     
     # dygraph line plot function for origianl and seasonal adj series
@@ -4513,7 +4610,36 @@ server <- function(input, output, session) {
     # forecast plot
     
     # render UI
-    
+    output$time_series_adjusted_plot <- renderDygraph({
+      req(seas_out())
+      
+      # Extract components
+      origin_series <- original(seas_out())
+      trend_component <- series(seas_out(), "seats.trend")
+      seasonadj_series <- seas_out()$data[, "seasonaladj"]
+      
+      # Combine into multivariate ts
+      compare_series <- cbind(
+        `Original Series` = origin_series,
+        `Seasonally Adjusted` = seasonadj_series,
+        `Trend Component` = trend_component
+      )
+      
+      # Build dygraph
+      dygraph(compare_series, main = "Seasonal Adjustment Comparison") %>%
+        dySeries("Original Series", color = "#1f77b4", strokeWidth = 2.5, label = "Original") %>%
+        dySeries("Seasonally Adjusted", color = "#2ca02c", strokeWidth = 1.5, label = "Adjusted") %>%
+        dySeries("Trend Component", color = "#ff7f0e", strokePattern = "dashed", strokeWidth = 2, label = "Trend") %>%
+        dyOptions(
+          drawGrid = TRUE,
+          useDataTimezone = TRUE,
+          drawPoints = FALSE,
+          strokeBorderWidth = 1
+        ) %>%
+        dyRangeSelector(height = 30, strokeColor = "gray") %>%
+        dyLegend(show = "always", hideOnMouseOut = FALSE, width = 300) %>%
+        dyAxis("y", label = "Trade Value", valueFormatter = 'function(y) { return(y.toLocaleString()); }')
+    })
     # diagnostic table
     
     
