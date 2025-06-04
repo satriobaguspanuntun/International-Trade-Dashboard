@@ -82,7 +82,7 @@ service_commod <- sql_service_concordance(conn)
 combined_concord <- clean_hs_commod %>% bind_rows(service_commod)
 
 # available series for forecast
-aggregate_series <-  c("Total Goods", "Total Services", "Trade Balance")
+aggregate_series <-  c("Total Goods", "Total Services")
 
 available_series <- combined_concord$text
 
@@ -4674,8 +4674,6 @@ server <- function(input, output, session) {
                           irregular = irregular_component)
       })
     
-    # diagnostic table
-    
     # render UI forecast
     output$forecast_series <- renderUI({
       
@@ -4724,6 +4722,16 @@ server <- function(input, output, session) {
       box(
         width = 12,
         collapsible = FALSE,
+        tags$div(
+          style = "text-align: left;
+                         font-size: 20px;
+                         font-weight: 700;
+                         color: #2c3e50;
+                         padding: 5px;
+                         margin-bottom: -30px;
+                         margin-top: -10px;",
+          span("Model Diagnostic Output")
+        ),
         verbatimTextOutput("summary_model")
       )
       
@@ -4736,8 +4744,11 @@ server <- function(input, output, session) {
       
     })
     
+    # decomposition plot
     
-    # separate seas output by decomposition, original and seasonaladj value
+    # render UI for decompostion
+    
+    
     
     
 }
