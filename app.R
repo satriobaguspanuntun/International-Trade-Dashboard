@@ -1109,7 +1109,18 @@ ui <- dashboardPage(
         )
        ),
        fluidRow(
-         dygraphOutput("time_series_adjusted_plot",height = "600px")
+         column(
+           width = 12,
+           uiOutput("time_series_section")
+           ),
+         column(
+           width = 8,
+           uiOutput("forecast_series")
+         ),
+         column(
+           width = 4,
+           uiOutput("diagnostic_series")
+         )
        )
       ),
       tabItem(
@@ -4427,7 +4438,7 @@ server <- function(input, output, session) {
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
         mutate(`Trade Balance` = Export-Import) %>% 
-        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
+        pivot_longer(cols = Import:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
       
       rv_seasonal_seats$aggregate_series_goods_quarterly <- monthly_trade_summariser_func(data = rv_seasonal_seats$bind_data %>% filter(trade_type == "goods"),
                                                                                         freq = "Quarterly",
@@ -4436,7 +4447,7 @@ server <- function(input, output, session) {
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
         mutate(`Trade Balance` = Export-Import) %>% 
-        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
+        pivot_longer(cols = Import:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
       
       
                                           
@@ -4447,10 +4458,12 @@ server <- function(input, output, session) {
         select(-flow_code) %>% 
         pivot_wider(names_from = flow_desc, values_from = total_trade_value) %>% 
         mutate(`Trade Balance` = Export-Import) %>% 
-        pivot_longer(cols = Export:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
+        pivot_longer(cols = Import:`Trade Balance`, names_to = "flow_desc", values_to = "total_trade_value")
       
+      print(rv_seasonal_seats$aggregate_series_goods_monthly)
+      print(rv_seasonal_seats$aggregate_series_goods_quarterly)
+      print(rv_seasonal_seats$aggregate_series_services_quarterly)
       
-
       # hs+service series
       if (!rv_seasonal_seats$series %in% c(aggregate_series)) {
         
@@ -4521,6 +4534,7 @@ server <- function(input, output, session) {
           
           rv_seasonal_seats$commod_series <- rv_seasonal_seats$aggregate_series_services_quarterly %>% filter(flow_desc == rv_seasonal_seats$exp_imp)
           
+          
           rv_seasonal_seats$commod_series_ts <- convert_to_ts(data = rv_seasonal_seats$commod_series, freq = rv_seasonal_seats$freq)
 
         } else {
@@ -4582,7 +4596,7 @@ server <- function(input, output, session) {
       }
       
       # run seas 
-      seasonal_series <- seas(list = input_list)
+      seasonal_series <- seas(list = input_list, forecast.save = "fct")
       
       return(seasonal_series)
     }
@@ -4599,23 +4613,27 @@ server <- function(input, output, session) {
       
     })
     
-    observe({
-      req(rv_seasonal_seats$commod_series_ts, rv_seasonal_seats$model, rv_seasonal_seats$arima_model, rv_seasonal_seats$transform, rv_seasonal_seats$outlier)
-      print(summary(seas_out()))
-      })
-    # separate seas output by decomposition, original and seasonaladj value
-    
-    # dygraph line plot function for origianl and seasonal adj series
-    
-    # forecast plot
-    
     # render UI
+    output$time_series_section <- renderUI({
+        box(
+          collapsible = FALSE, 
+          width = 12,
+          dygraphOutput("time_series_adjusted_plot",height = "600px")
+        )
+    })
+    
+
     output$time_series_adjusted_plot <- renderDygraph({
       req(seas_out())
       
+      # dygraph line plot function for origianl and seasonal adj series
       # Extract components
       origin_series <- original(seas_out())
-      trend_component <- series(seas_out(), "seats.trend")
+      if (rv_seasonal_seats$model == "X-13") {
+        trend_component <- series(seas_out(), "seats.trend")
+      } else {
+        trend_component <- series(seas_out(), "x11.trend")
+      }
       seasonadj_series <- seas_out()$data[, "seasonaladj"]
       
       # Combine into multivariate ts
@@ -4631,17 +4649,95 @@ server <- function(input, output, session) {
         dySeries("Seasonally Adjusted", color = "#2ca02c", strokeWidth = 1.5, label = "Adjusted") %>%
         dySeries("Trend Component", color = "#ff7f0e", strokePattern = "dashed", strokeWidth = 2, label = "Trend") %>%
         dyOptions(
-          drawGrid = TRUE,
-          useDataTimezone = TRUE,
-          drawPoints = FALSE,
           strokeBorderWidth = 1
         ) %>%
         dyRangeSelector(height = 30, strokeColor = "gray") %>%
         dyLegend(show = "always", hideOnMouseOut = FALSE, width = 300) %>%
         dyAxis("y", label = "Trade Value", valueFormatter = 'function(y) { return(y.toLocaleString()); }')
     })
+    
+    # extract forecast and decomposition data
+    decomp_forecast <- reactive({
+      forecast_series <- series(seas_out(), "fct")
+      if (rv_seasonal_seats$model == "X-13") {
+        seasonal_component <- series(seas_out(), "seats.seasonal")
+        trend_component <- series(seas_out(), "seats.trend")
+        irregular_component <- series(seas_out(), "seats.irregular")
+        
+      } else {
+        seasonal_component <- series(seas_out(), "x11.seasonal")
+        trend_component <- series(seas_out(), "x11.trend")
+        irregular_component <- series(seas_out(), "x11.irregular")
+      }
+      
+      decomp_list <- list(forecast = forecast_series, seasonal = seasonal_component, trend = trend_component,
+                          irregular = irregular_component)
+      })
+    
     # diagnostic table
     
+    # render UI forecast
+    output$forecast_series <- renderUI({
+      
+      box(
+        width = 12,
+        collapsible = FALSE,
+        dygraphOutput("forecast_plot", height = "500px")
+      )
+      
+    })
+    
+    # forecast plot
+    output$forecast_plot <- renderDygraph({
+      
+      # extract forecast data
+      forecast_data <- decomp_forecast()[[1]]
+      
+      dygraph(forecast_data, main = "Forecasted Series with Confidence Interval") %>%
+        dySeries(c("lowerci", "forecast", "upperci"), 
+                 label = "Forecast", 
+                 color = "#1f77b4", 
+                 strokeWidth = 2.5) %>%
+        dyOptions(
+          drawGrid = TRUE,
+          strokeBorderWidth = 1,
+        ) %>%
+        dyLegend(
+          show = "always",
+          width = 300,
+          hideOnMouseOut = FALSE
+        ) %>%
+        dyRangeSelector(
+          height = 30,
+          strokeColor = "gray",
+          fillColor = "#d3d3d3"
+        ) %>%
+        dyAxis("y", 
+               label = "Trade Value", 
+               valueFormatter = 'function(y) { return(y.toLocaleString()); }') 
+      
+    })
+    
+    # render UI diagnostic table
+    output$diagnostic_series <- renderUI({
+      
+      box(
+        width = 12,
+        collapsible = FALSE,
+        verbatimTextOutput("summary_model")
+      )
+      
+    })
+    
+    # diagnostic table
+    output$summary_model <- renderPrint({
+      
+      summary(seas_out())
+      
+    })
+    
+    
+    # separate seas output by decomposition, original and seasonaladj value
     
     
 }
