@@ -1121,6 +1121,23 @@ ui <- dashboardPage(
            width = 4,
            uiOutput("diagnostic_series")
          )
+       ),
+       fluidRow(
+         column(
+           width = 12,
+           tags$div(
+             class = "title-container",
+             tags$div(
+             style = "text-align: left;
+                      font-size: 28px;
+                      font-weight: 700;
+                      color: #2c3e50;
+                      padding: 1px;",
+             span("Seasonal Decomposition"),
+             tags$hr(class = "animated-hr")
+           )
+          )
+         )
        )
       ),
       tabItem(
@@ -4745,10 +4762,52 @@ server <- function(input, output, session) {
     })
     
     # decomposition plot
+    decomposition_plot <- function(data, composition_type) {
+      
+      if (composition_type == "seasonal") {
+        title <- "Seasonal Component"
+        var <- "Seasonal"
+        color_series <- "#1f77b4"
+        pattern = "dotted"
+        
+      } else if (composition_type == "trend"){
+        title <- "Trend Component"
+        var <- "Trend"
+        color_series <- "#ff7f0e"
+        pattern = NULL
+        
+      } else {
+        title = "Irregular Component"
+        var = "Irregular"
+        color_series = "#2ca02c"
+        pattern = "dash"
+        
+      }
+      
+      # plot
+      dygraph(data, main = "Seasonal") %>% 
+        dySeries(var, label = var, color = color_series, drawPoints = TRUE, strokePattern = pattern, strokeWidth = 2.5) %>% 
+        dyOptions(
+          drawGrid = TRUE,
+          strokeBorderWidth = 1
+        ) %>% 
+        dyLegend(
+          show = "always",
+          width = 300,
+          hideOnMouseOut = FALSE
+        ) %>% 
+        dyRangeSelector(
+          height = 30,
+          strokeColor = "gray",
+          fillColor = "#d3d3d3"
+        )
+      
+    }
     
     # render UI for decompostion
     
     
+    # time-series table
     
     
 }
