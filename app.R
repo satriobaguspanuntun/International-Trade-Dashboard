@@ -181,22 +181,6 @@ ui <- dashboardPage(
           tabName = "forecasting_trade",
           icon = icon("chevron-right")
         )
-      ),
-      menuItem(
-        text = "Macro-Forecasting",
-        tabName = "macro_forecast",
-        icon = icon("line-chart"),
-        startExpanded = TRUE,
-        menuSubItem(
-          text = "ARIMA Method",
-          tabName = "arima_macro",
-          icon = icon("square")
-        ),
-        menuSubItem(
-          text = "Dynamic Factor Model",
-          tabName = "dynamic_macro",
-          icon = icon("square")
-        )
       )
     )
   ),
@@ -1136,17 +1120,15 @@ ui <- dashboardPage(
              span("Seasonal Decomposition"),
              tags$hr(class = "animated-hr")
            )
+          ),
+          fluidRow(
+            column(
+              width = 12,
+              uiOutput("decomp_plot")
+            )
           )
          )
        )
-      ),
-      tabItem(
-        tabName = "macro_forecast",
-        tags$h1("Work In Progress...")
-      ),
-      tabItem(
-        tabName = "macro_forecast",
-        tags$h1("Work In Progress...")
       )
     )
   )
@@ -4766,27 +4748,27 @@ server <- function(input, output, session) {
       
       if (composition_type == "seasonal") {
         title <- "Seasonal Component"
-        var <- "Seasonal"
+        label <- "Seasonal"
         color_series <- "#1f77b4"
-        pattern = "dotted"
+        pattern = NULL
         
       } else if (composition_type == "trend"){
         title <- "Trend Component"
-        var <- "Trend"
+        label <- "Trend"
         color_series <- "#ff7f0e"
         pattern = NULL
         
       } else {
-        title = "Irregular Component"
-        var = "Irregular"
-        color_series = "#2ca02c"
-        pattern = "dash"
+        title <-  "Irregular Component"
+        label <-  "Irregular"
+        color_series <-  "#2ca02c"
+        pattern <-  NULL
         
       }
       
       # plot
-      dygraph(data, main = "Seasonal") %>% 
-        dySeries(var, label = var, color = color_series, drawPoints = TRUE, strokePattern = pattern, strokeWidth = 2.5) %>% 
+      dygraph(data, main = title) %>% 
+        dySeries("V1", label = label, color = color_series, strokePattern = pattern, strokeWidth = 2.5) %>% 
         dyOptions(
           drawGrid = TRUE,
           strokeBorderWidth = 1
@@ -4804,7 +4786,27 @@ server <- function(input, output, session) {
       
     }
     
+
+    
     # render UI for decompostion
+    output$decomp_plot <- renderUI({
+      
+      box(
+          width = 12,
+          dygraphOutput("seasonal_chart"),
+          tags$br(),
+          dygraphOutput("trend_chart"),
+          tags$br(),
+          dygraphOutput("irregular_chart")
+        )
+      
+    })
+    
+    output$seasonal_chart <- renderDygraph({decomposition_plot(decomp_forecast()[[2]], "seasonal")})
+    
+    output$trend_chart <- renderDygraph({decomposition_plot(decomp_forecast()[[3]], "trend")})
+    
+    output$irregular_chart <- renderDygraph({decomposition_plot(decomp_forecast()[[4]], "irregular")})
     
     
     # time-series table
